@@ -1,36 +1,108 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# AI Coach - Architecture & Planning
 
-## Getting Started
+## 🎯 Objectif
 
-First, run the development server:
+IA Coach complet avec:
+- ✅ Analyse morpho (BodyScore AI ou custom)
+- ✅ Suivi entraînement (Hevy API)
+- ✅ Analyse vidéo (MediaPipe)
+- ✅ Données nutrition (Journal Santé API)
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+---
+
+## 📂 Sources de Données
+
+| Source | API | Status |
+|--------|-----|--------|
+| **Hevy** | api.hevyapp.com | Pro requis |
+| **Journal Santé** | `/home/crypton/codex-dev/journal-sante/app/api/` | ✅ Disponible |
+| **Google Drive** | OAuth2 API | À configurer |
+
+---
+
+## 🏗️ Architecture
+
+```
+Frontend (Next.js)
+  └─ Dashboard (Morpho, Training, Nutrition, Video)
+
+Backend (API Routes)
+  ├─ /api/hevy/* → Hevy data
+  ├─ /api/nutrition/* → Journal Santé
+  ├─ /api/morpho/* → BodyScore API
+  └─ /api/video/* → MediaPipe analysis
+
+Database (PostgreSQL)
+  ├─ User data
+  ├─ Training logs
+  ├─ Nutrition logs
+  └─ Progress photos
+
+AI Services
+  ├─ BodyScore (morpho)
+  ├─ MediaPipe (video)
+  └─ Custom ML (patterns)
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+---
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 📅 Planning
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### Phase 1: Setup (Week 1-2)
+- [ ] Init Next.js + Tailwind
+- [ ] PostgreSQL + Prisma
+- [ ] Auth (NextAuth)
 
-## Learn More
+### Phase 2: Data Integration (Week 3-4)
+- [ ] Hevy API integration
+- [ ] Journal Santé API
+- [ ] Google Drive sync
 
-To learn more about Next.js, take a look at the following resources:
+### Phase 3: Morphology (Week 5-6)
+- [ ] BodyScore API integration
+- [ ] Photo upload
+- [ ] Progress tracking
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### Phase 4: Video (Week 7-9)
+- [ ] MediaPipe setup
+- [ ] Pose detection
+- [ ] Rep counting + form feedback
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Phase 5: AI Coach (Week 10-11)
+- [ ] Pattern analysis
+- [ ] Recommendations
+- [ ] Reports
 
-## Deploy on Vercel
+### Phase 6: Testing (Week 12)
+- [ ] Beta test
+- [ ] Optimization
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+---
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## 📚 Stack Technique
+
+- **Frontend:** Next.js 16 + Tailwind v4 + shadcn/ui
+- **Backend:** Next.js API Routes + PostgreSQL + Prisma
+- **AI:** MediaPipe + OpenCV + PyTorch
+- **Auth:** NextAuth (Google OAuth)
+- **Deploy:** Vercel
+
+---
+
+## 💰 Budget
+
+| Service | Coût/mo |
+|---------|---------|
+| Vercel | $0-20 |
+| Hevy Pro | $10 |
+| BodyScore | $9.99 |
+| **Total** | **$20-40/mo** |
+
+---
+
+## 🔧 Next Steps
+
+1. ✅ Dossier créé: `/home/crypton/glmdev/coach/`
+2. ✅ Next.js initialisé
+3. ⏳ Setup database
+4. ⏳ Intégrer Journal Santé API
