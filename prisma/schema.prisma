@@ -1,0 +1,182 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ===== USER =====
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  measurements  Measurement[]
+  workouts      Workout[]
+  meals         Meal[]
+  videos        Video[]
+  progressPhotos ProgressPhoto[]
+}
+
+// ===== MEASUREMENTS (Body Composition) =====
+model Measurement {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  
+  // Body measurements
+  weight      Float
+  bodyFat     Float?   // %
+  muscleMass  Float?
+  bmi         Float?
+  
+  // BodyScore data
+  bodyScoreId String?  // BodyScore AI ID
+  bodyScoreData Json?  // Raw data from BodyScore
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
+// ===== WORKOUTS (Hevy integration) =====
+model Workout {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  
+  // Hevy data
+  hevyId      String?  // Hevy workout ID
+  name        String
+  description String?
+  
+  // Stats
+  duration    Int?     // minutes
+  calories    Int?
+  volume      Float?   // total weight lifted
+  
+  completedAt DateTime
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  exercises   Exercise[]
+  aiFeedback  Json?    // AI coach feedback
+
+  @@index([userId])
+  @@index([completedAt])
+}
+
+// ===== EXERCISES =====
+model Exercise {
+  id          String   @id @default(cuid())
+  workoutId   String
+  workout     Workout  @relation(fields: [workoutId], references: [id])
+  
+  name        String
+  sets        ExerciseSet[]
+  
+  createdAt   DateTime @default(now())
+
+  @@index([workoutId])
+}
+
+// ===== EXERCISE SETS =====
+model ExerciseSet {
+  id          String   @id @default(cuid())
+  exerciseId  String
+  exercise    Exercise @relation(fields: [exerciseId], references: [id])
+  
+  reps        Int
+  weight      Float    // kg
+  rpe         Float?   // Rate of Perceived Exertion (1-10)
+  duration    Int?     // seconds
+  
+  // AI feedback
+  formScore   Float?   // 0-100
+  feedback    String?
+
+  createdAt   DateTime @default(now())
+
+  @@index([exerciseId])
+}
+
+// ===== MEALS (Nutrition - Journal Santé) =====
+model Meal {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  
+  // Journal Santé data
+  journalId   String?  // Journal Santé meal ID
+  
+  // Meal data
+  name        String
+  type        String   // breakfast, lunch, dinner, snack
+  time        DateTime
+  
+  // Nutrition
+  calories    Int
+  protein     Float    // g
+  carbs       Float    // g
+  fats        Float    // g
+  fiber       Float?   // g
+  sugar       Float?   // g
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId])
+  @@index([time])
+}
+
+// ===== VIDEOS (MediaPipe analysis) =====
+model Video {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  
+  // Video data
+  exercise    String   // exercise name
+  url         String   // video URL (Drive storage)
+  duration    Int      // seconds
+  
+  // AI analysis
+  poseData    Json?    // MediaPipe pose data
+  repCount    Int?
+  formScore   Float?   // 0-100
+  feedback    String?
+  keypoints   Json?    // detected keypoints
+  
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+  @@index([exercise])
+}
+
+// ===== PROGRESS PHOTOS =====
+model ProgressPhoto {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  
+  // Photo data
+  url         String   // photo URL (Drive storage)
+  angle       String   // front, side, back
+  notes       String?
+  
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+  @@index([createdAt])
+}
