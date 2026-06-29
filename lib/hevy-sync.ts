@@ -99,15 +99,19 @@ export class HevySyncService {
         id: hevySet.id,
         workoutId,
         exerciseId,
-        setType: hevySet.set_type,
-        weightKg: hevySet.weight_kg,
         reps: hevySet.reps,
+        weight: hevySet.weight_kg,
         rpe: hevySet.rpe,
+        duration: hevySet.duration_seconds,
+        setType: hevySet.set_type || 'normal',
         oneRm: hevySet.one_rm,
-        isToFailure: hevySet.is_to_failure,
-        isWarmup: hevySet.is_warmup,
-        isDropSet: hevySet.is_drop_set,
+        isToFailure: hevySet.is_to_failure || false,
+        isWarmup: hevySet.is_warmup || false,
+        isDropSet: hevySet.is_drop_set || false,
+        setIndex: 0, // TODO: Calculate from exercise order
+        supersetIds: [], // TODO: Get from exercise superset data
         formScore: null, // TODO: Calculate from video analysis
+        feedback: null,
         createdAt: new Date(hevySet.created_at)
       }
     })
@@ -136,12 +140,13 @@ export class HevySyncService {
         // Create measurement
         await prisma.measurement.create({
           data: {
-            type: 'WEIGHT',
-            value: bw.weight_kg,
-            unit: 'KG',
-            date: new Date(bw.date),
-            source: 'HEVY',
-            userId: 'system'
+            weight: bw.weight_kg,
+            bodyFat: null,
+            muscleMass: null,
+            bmi: null,
+            bodyScoreId: null,
+            bodyScoreData: null,
+            userId: 'system' // TODO: Get from auth
           }
         })
 
