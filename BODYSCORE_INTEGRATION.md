@@ -1,5 +1,25 @@
 # BodyScore AI - Intégration Analyse Morpho
 
+## 🔗 PRENDRE L'ABONNEMENT
+
+**URL:** https://bodyscoreai.com/
+
+**Prix:** $12.99/mois (3 jours d'essai gratuit)
+
+**Étapes:**
+1. Aller sur https://bodyscoreai.com/
+2. Sign up / Login
+3. Choisir plan (Basic $12.99/mois)
+4. Récupérer l'API key dans Settings → API Keys
+5. Ajouter sur Vercel:
+   ```
+   Name: BODYSCORE_API_KEY
+   Value: ***ta clé API***
+   Environments: Production, Preview, Development
+   ```
+
+---
+
 ## ✅ COMPLÉTÉ
 
 ### Création des fichiers:
