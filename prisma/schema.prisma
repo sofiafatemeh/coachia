@@ -70,8 +70,9 @@ model Workout {
   updatedAt   DateTime @updatedAt
 
   // Relations
-  exercises   Exercise[]
-  aiFeedback  Json?    // AI coach feedback
+  exercises   Exercise[]     @relation("WorkoutExercises")
+  exerciseSets ExerciseSet[] @relation("WorkoutExerciseSets")
+  aiFeedback  Json?          // AI coach feedback
 
   @@index([userId])
   @@index([completedAt])
@@ -81,10 +82,10 @@ model Workout {
 model Exercise {
   id          String   @id @default(cuid())
   workoutId   String
-  workout     Workout  @relation(fields: [workoutId], references: [id])
+  workout     Workout  @relation("WorkoutExercises", fields: [workoutId], references: [id], onDelete: Cascade)
 
   name        String
-  sets        ExerciseSet[]
+  sets        ExerciseSet[] @relation("ExerciseSets")
 
   createdAt   DateTime @default(now())
 
@@ -94,13 +95,25 @@ model Exercise {
 // ===== EXERCISE SETS =====
 model ExerciseSet {
   id          String   @id @default(cuid())
+  workoutId   String
+  workout     Workout  @relation("WorkoutExerciseSets", fields: [workoutId], references: [id], onDelete: Cascade)
   exerciseId  String
-  exercise    Exercise @relation(fields: [exerciseId], references: [id])
+  exercise    Exercise @relation("ExerciseSets", fields: [exerciseId], references: [id], onDelete: Cascade)
 
+  // Basic set data
   reps        Int
   weight      Float    // kg
   rpe         Float?   // Rate of Perceived Exertion (1-10)
   duration    Int?     // seconds
+
+  // Hevy-specific fields
+  setType     String   @default("normal")  // normal, warmup, drop, failure
+  oneRm       Float?   // Estimated 1RM
+  isToFailure Boolean  @default(false)
+  isWarmup   Boolean  @default(false)
+  isDropSet Boolean  @default(false)
+  setIndex   Int      @default(0)  // Order within exercise
+  supersetIds Int[]    @default([])  // Superset group IDs
 
   // AI feedback
   formScore   Float?   // 0-100
@@ -109,6 +122,7 @@ model ExerciseSet {
   createdAt   DateTime @default(now())
 
   @@index([exerciseId])
+  @@index([workoutId])
 }
 
 // ===== MEALS (Nutrition - Journal Santé) =====
