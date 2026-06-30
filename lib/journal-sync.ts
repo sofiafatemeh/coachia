@@ -1,19 +1,6 @@
 import prisma from '@/lib/prisma'
-import { getClaudeClient } from '@/lib/claude'
-
-export interface JournalEntry {
-  id: string
-  timestamp: string
-  content: string
-  mood?: string
-  energy?: number
-  sleep?: number
-  notes?: string
-}
 
 export class JournalSyncService {
-  private claude = getClaudeClient()
-
   async syncMeals(options?: { days?: number }) {
     const days = options?.days || 7
     const startDate = new Date()
@@ -40,6 +27,8 @@ export class JournalSyncService {
 
   async dailySummary(date?: string) {
     const targetDate = date ? new Date(date) : new Date()
+    const startOfDay = new Date(targetDate.setHours(0, 0, 0, 0))
+    const endOfDay = new Date(targetDate.setHours(23, 59, 59, 999))
 
     // Get system user
     let user = await prisma.user.findUnique({
@@ -54,16 +43,9 @@ export class JournalSyncService {
     const workouts = await prisma.workout.findMany({
       where: {
         userId: user.id,
-        startedAt: {
-          gte: new Date(targetDate.setHours(0, 0, 0, 0)),
-          lt: new Date(targetDate.setHours(23, 59, 59, 999))
-        }
-      },
-      include: {
-        exercises: {
-          include: {
-            sets: true
-          }
+        completedAt: {
+          gte: startOfDay,
+          lt: endOfDay
         }
       }
     })
@@ -72,8 +54,8 @@ export class JournalSyncService {
       where: {
         userId: user.id,
         createdAt: {
-          gte: new Date(targetDate.setHours(0, 0, 0, 0)),
-          lt: new Date(targetDate.setHours(23, 59, 59, 999))
+          gte: startOfDay,
+          lt: endOfDay
         }
       }
     })
@@ -82,32 +64,20 @@ export class JournalSyncService {
       where: {
         userId: user.id,
         createdAt: {
-          gte: new Date(targetDate.setHours(0, 0, 0, 0)),
-          lt: new Date(targetDate.setHours(23, 59, 59, 999))
+          gte: startOfDay,
+          lt: endOfDay
         }
       }
     })
 
-    // Generate summary with Claude Opus 4.8
-    const prompt = `Generate a daily fitness summary for ${targetDate.toLocaleDateString()}.
-
-DATA:
-- Workouts: ${workouts.length} sessions
-- Measurements: ${measurements ? JSON.stringify({ weight: measurements.weight, bodyFat: measurements.bodyFat, muscleMass: measurements.muscleMass }) : 'None'}
-- Meals: ${meals.length} meals
-
-WORKOUT DETAILS:
-${workouts.map(w => `- ${w.name}: ${w.exercises.length} exercises`).join('\n')}
-
-Generate a motivating summary with:
-1. Performance highlights
-2. Progress tracking
-3. Recommendations for tomorrow`
-
-    const summary = await this.claude.analyzeProgress([], {
-      prompt,
-      model: 'claude-opus-4-8' as any
-    })
+    // Generate simple summary
+    const summary = workouts.length > 0
+      ? `Great day! You completed ${workouts.length} workout${workouts.length > 1 ? 's' : ''}.`
+      : measurements
+      ? `You tracked your measurements today.`
+      : meals.length > 0
+      ? `You logged ${meals.length} meal${meals.length > 1 ? 's' : ''} today.`
+      : 'No data logged today.'
 
     return {
       date: targetDate.toLocaleDateString(),
@@ -118,7 +88,7 @@ Generate a motivating summary with:
         muscleMass: measurements.muscleMass
       } : null,
       meals: meals.length,
-      summary: summary.recommendations?.[0] || 'Summary generated',
+      summary,
       rawData: {
         workouts,
         measurements,
