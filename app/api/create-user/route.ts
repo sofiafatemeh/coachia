@@ -16,7 +16,6 @@ export async function GET() {
         data: {
           email: 'system@example.com',
           name: 'System User',
-          password: 'dummy', // Will be replaced with proper auth
         },
       })
       console.log('[API] User created:', user.id)
