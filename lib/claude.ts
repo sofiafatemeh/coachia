@@ -18,85 +18,41 @@ export interface ClaudeContent {
   }
 }
 
-export interface ClaudeAnalysisRequest {
-  model?: ClaudeModel
-  maxTokens?: number
-  temperature?: number
-  system?: string
-  messages: ClaudeMessage[]
-}
-
-export interface ClaudeAnalysisResponse {
-  id: string
-  type: string
-  role: string
-  content: ClaudeContent[]
-  model: string
-  stop_reason: string | null
-  stop_sequence: string | null
-  usage: {
-    input_tokens: number
-    output_tokens: number
-  }
-}
-
 export interface ClaudeVisionAnalysis {
-  bodyFat?: number  // %
-  muscleMass?: number  // kg
+  overallScore: number // 0-100
+  confidence: number // 0-1
+  imageUrl: string
+  weight?: number // kg
+  bodyFat?: number // %
+  muscleMass?: number // kg
   bmi?: number
-  weight?: number  // kg
-  confidence?: number  // 0-1
-
-  // Muscle groups
-  chestScore?: number  // 0-10
-  backScore?: number  // 0-10
-  legsScore?: number  // 0-10
-  armsScore?: number  // 0-10
-  shouldersScore?: number  // 0-10
-  coreScore?: number  // 0-10
-
-  // Analysis
+  chestScore?: number
+  backScore?: number
+  legsScore?: number
+  armsScore?: number
+  shouldersScore?: number
+  coreScore?: number
   strengths?: string[]
   weaknesses?: string[]
   recommendations?: string[]
+}
 
-  // Overall score
-  overallScore?: number  // 0-100
+export interface ClaudeProgressAnalysis {
+  scoreDiff: number
+  weightDiff?: number
+  muscleMassDiff?: number
+  bodyFatDiff?: number
+  improvements: string[]
+  areasForImprovement: string[]
+  summary: string
 }
 
 export class ClaudeClient {
   private apiKey: string
-  private baseUrl: string
+  private baseUrl = 'https://api.anthropic.com/v1/messages'
 
-  constructor(apiKey: string, baseUrl: string = 'https://api.anthropic.com/v1/messages') {
+  constructor(apiKey: string) {
     this.apiKey = apiKey
-    this.baseUrl = baseUrl
-  }
-
-  private async request<T>(options: ClaudeAnalysisRequest): Promise<T> {
-    const response = await fetch(this.baseUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': this.apiKey,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'false',
-      },
-      body: JSON.stringify({
-        model: options.model || 'claude-3-5-sonnet-20241022',
-        max_tokens: options.maxTokens || 4096,
-        temperature: options.temperature || 0.3,
-        system: options.system,
-        messages: options.messages,
-      }),
-    })
-
-    if (!response.ok) {
-      const error = await response.json()
-      throw new Error(`Claude API error: ${response.status} - ${error.error?.message || response.statusText}`)
-    }
-
-    return response.json()
   }
 
   async analyzePhoto(imageUrl: string, options?: {
@@ -105,127 +61,295 @@ export class ClaudeClient {
     gender?: 'male' | 'female'
     age?: number
   }): Promise<ClaudeVisionAnalysis> {
-    // Fetch image and convert to base64
-    const imageResponse = await fetch(imageUrl)
-    if (!imageResponse.ok) {
-      throw new Error(`Failed to fetch image: ${imageResponse.statusText}`)
-    }
+    console.log('[Claude] Starting photo analysis...')
+    console.log('[Claude] Image URL:', imageUrl)
+    console.log('[Claude] Options:', JSON.stringify(options, null, 2))
 
-    const imageBuffer = await imageResponse.arrayBuffer()
-    const base64Image = Buffer.from(imageBuffer).toString('base64')
-    const mediaType = imageResponse.headers.get('content-type') || 'image/jpeg'
+    try {
+      // Fetch image and convert to base64
+      console.log('[Claude] Fetching image...')
+      const imageResponse = await fetch(imageUrl)
+      if (!imageResponse.ok) {
+        throw new Error(`Failed to fetch image: ${imageResponse.statusText}`)
+      }
 
-    // Build system prompt
-    let systemPrompt = `You are an expert fitness coach analyzing physique photos. Provide a detailed analysis including:
-1. Body composition (body fat %, muscle mass, BMI, weight)
-2. Muscle group scores (chest, back, legs, arms, shoulders, core) - scale 0-10
-3. Strengths and weaknesses
-4. Specific recommendations
-5. Overall score (0-100)
+      const imageBuffer = await imageResponse.arrayBuffer()
+      const base64Image = Buffer.from(imageBuffer).toString('base64')
+      const mediaType = imageResponse.headers.get('content-type') || 'image/jpeg'
 
-Respond ONLY in valid JSON format.`
+      console.log('[Claude] Image fetched. Size:', imageBuffer.byteLength, 'bytes. Type:', mediaType)
 
-    if (options?.height) {
-      systemPrompt += `\n\nHeight: ${options.height} cm`
-    }
-    if (options?.gender) {
-      systemPrompt += `\nGender: ${options.gender}`
-    }
-    if (options?.age) {
-      systemPrompt += `\nAge: ${options.age}`
-    }
+      // Build system prompt
+      let systemPrompt = `You are an expert fitness coach analyzing physique photos. Provide a detailed analysis including:
 
-    // Build user message
-    const messages: ClaudeMessage[] = [
-      {
-        role: 'user',
-        content: [
-          {
-            type: 'image',
-            source: {
-              type: 'base64',
-              media_type: mediaType,
-              data: base64Image,
+1. Overall score (0-100) based on:
+   - Muscle definition
+   - Symmetry
+   - Proportions
+   - Overall aesthetics
+
+2. Confidence level (0-1) in your assessment
+
+3. Body composition estimates:
+   - Weight (in kg, based on visual appearance)
+   - Body fat percentage
+   - Muscle mass estimate
+   - BMI estimate
+
+4. Muscle group scores (0-100 each):
+   - Chest
+   - Back
+   - Legs
+   - Arms
+   - Shoulders
+   - Core
+
+5. Strengths (3-5 key points)
+6. Weaknesses (3-5 key points)
+7. Recommendations (3-5 specific, actionable suggestions)
+
+Return ONLY valid JSON with this exact structure:
+{
+  "overallScore": number,
+  "confidence": number,
+  "weight": number,
+  "bodyFat": number,
+  "muscleMass": number,
+  "bmi": number,
+  "chestScore": number,
+  "backScore": number,
+  "legsScore": number,
+  "armsScore": number,
+  "shouldersScore": number,
+  "coreScore": number,
+  "strengths": string[],
+  "weaknesses": string[],
+  "recommendations": string[]
+}`
+
+      if (options?.height) {
+        systemPrompt += `\n\nThe person is ${options.height}cm tall.`
+      }
+      if (options?.gender) {
+        systemPrompt += `\n\nThe person is ${options.gender}.`
+      }
+      if (options?.age) {
+        systemPrompt += `\n\nThe person is approximately ${options.age} years old.`
+      }
+
+      const model = options?.model || 'claude-3-5-sonnet-20241022'
+
+      console.log('[Claude] Calling Claude API with model:', model)
+
+      const response = await fetch(this.baseUrl, {
+        method: 'POST',
+        headers: {
+          'x-api-key': this.apiKey,
+          'anthropic-version': '2023-06-01',
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          model,
+          max_tokens: 4096,
+          system: systemPrompt,
+          messages: [
+            {
+              role: 'user',
+              content: [
+                {
+                  type: 'image',
+                  source: {
+                    type: 'base64',
+                    media_type: mediaType,
+                    data: base64Image,
+                  },
+                },
+              ],
             },
-          },
-          {
-            type: 'text',
-            text: 'Analyze this physique photo and provide a detailed JSON response.',
-          },
-        ],
-      },
-    ]
+          ],
+        }),
+      })
 
-    // Call Claude API
-    const response = await this.request<ClaudeAnalysisResponse>({
-      model: options?.model || 'claude-3-5-sonnet-20241022',
-      maxTokens: 4096,
-      temperature: 0.3,
-      system: systemPrompt,
-      messages,
-    })
+      console.log('[Claude] Response status:', response.status)
 
-    // Parse JSON response
-    const textContent = response.content.find(c => c.type === 'text')?.text || '{}'
-    const analysis = JSON.parse(textContent)
+      if (!response.ok) {
+        const error = await response.json()
+        console.error('[Claude] API Error:', JSON.stringify(error, null, 2))
+        throw new Error(`Claude API error: ${response.status} - ${error.error?.message || response.statusText}`)
+      }
 
-    return analysis
+      const data = await response.json()
+      console.log('[Claude] Response data received. Parsing...')
+
+      const content = data.content[0]?.text || ''
+      console.log('[Claude] Raw response:', content.substring(0, 200))
+
+      // Extract JSON from response
+      const jsonMatch = content.match(/\{[\s\S]*\}/)
+      if (!jsonMatch) {
+        console.error('[Claude] No JSON found in response')
+        throw new Error('No JSON found in Claude response')
+      }
+
+      const result = JSON.parse(jsonMatch[0])
+      console.log('[Claude] Parsed result:', JSON.stringify(result, null, 2))
+
+      // Validate result
+      if (typeof result.overallScore !== 'number' || typeof result.confidence !== 'number') {
+        console.error('[Claude] Invalid result structure:', result)
+        throw new Error('Invalid Claude response structure')
+      }
+
+      console.log('[Claude] Analysis successful!')
+
+      return {
+        overallScore: result.overallScore,
+        confidence: result.confidence,
+        imageUrl,
+        weight: result.weight,
+        bodyFat: result.bodyFat,
+        muscleMass: result.muscleMass,
+        bmi: result.bmi,
+        chestScore: result.chestScore,
+        backScore: result.backScore,
+        legsScore: result.legsScore,
+        armsScore: result.armsScore,
+        shouldersScore: result.shouldersScore,
+        coreScore: result.coreScore,
+        strengths: result.strengths || [],
+        weaknesses: result.weaknesses || [],
+        recommendations: result.recommendations || [],
+      }
+    } catch (error) {
+      console.error('[Claude] Error during analysis:', error)
+      if (error instanceof Error) {
+        console.error('[Claude] Error message:', error.message)
+        console.error('[Claude] Error stack:', error.stack)
+      }
+      throw error
+    }
   }
 
-  async analyzeProgress(photos: string[], options?: {
-    model?: ClaudeModel
-    days?: number
-  }): Promise<{
-    overallScore: number
-    progress: {
-      weightChange: number
-      bodyFatChange: number
-      muscleMassChange: number
+  async analyzeProgress(
+    photoUrls: string[],
+    options?: {
+      days?: number
+      model?: ClaudeModel
     }
-    recommendations: string[]
-    strengths: string[]
-    weaknesses: string[]
-  }> {
-    // Analyze first and last photo
-    const [first, last] = [photos[0], photos[photos.length - 1]]
+  ): Promise<ClaudeProgressAnalysis> {
+    console.log('[Claude] Starting progress analysis...')
+    console.log('[Claude] Photo URLs:', photoUrls.length, 'photos')
 
-    const firstAnalysis = await this.analyzePhoto(first, { model: options?.model })
-    const lastAnalysis = await this.analyzePhoto(last, { model: options?.model })
+    try {
+      // Fetch all images
+      console.log('[Claude] Fetching images...')
+      const imagePromises = photoUrls.map(async (url) => {
+        const response = await fetch(url)
+        if (!response.ok) {
+          throw new Error(`Failed to fetch image: ${response.statusText}`)
+        }
+        const buffer = await response.arrayBuffer()
+        const base64 = Buffer.from(buffer).toString('base64')
+        const mediaType = response.headers.get('content-type') || 'image/jpeg'
+        return {
+          type: 'image' as const,
+          source: {
+            type: 'base64' as const,
+            media_type: mediaType,
+            data: base64,
+          },
+        }
+      })
 
-    // Calculate progress
-    const progress = {
-      weightChange: (lastAnalysis.weight || 0) - (firstAnalysis.weight || 0),
-      bodyFatChange: (lastAnalysis.bodyFat || 0) - (firstAnalysis.bodyFat || 0),
-      muscleMassChange: (lastAnalysis.muscleMass || 0) - (firstAnalysis.muscleMass || 0),
-    }
+      const images = await Promise.all(imagePromises)
+      console.log('[Claude] Images fetched:', images.length)
 
-    // Generate recommendations based on progress
-    const recommendations: string[] = []
+      const systemPrompt = `You are an expert fitness coach analyzing progress photos. Compare the physique evolution.
 
-    if (progress.weightChange < 0) {
-      recommendations.push('Excellent weight loss progress! Continue current approach.')
-    } else if (progress.weightChange > 0) {
-      recommendations.push('Weight gain detected - adjust nutrition/training if goal is weight loss.')
-    }
+Provide:
+1. Overall score difference (positive = improvement)
+2. Weight change (in kg, estimate)
+3. Muscle mass change (estimate)
+4. Body fat change (estimate)
+5. 3-5 improvements observed
+6. 3-5 areas for continued improvement
+7. Brief summary of progress
 
-    if (progress.bodyFatChange < 0) {
-      recommendations.push('Body fat decreasing - great fat loss progress!')
-    } else if (progress.bodyFatChange > 0) {
-      recommendations.push('Body fat increasing - review calorie intake and cardio.')
-    }
+Return ONLY valid JSON:
+{
+  "scoreDiff": number,
+  "weightDiff": number,
+  "muscleMassDiff": number,
+  "bodyFatDiff": number,
+  "improvements": string[],
+  "areasForImprovement": string[],
+  "summary": string
+}`
 
-    if (progress.muscleMassChange > 0) {
-      recommendations.push('Muscle mass increasing - excellent hypertrophy progress!')
-    } else if (progress.muscleMassChange < 0) {
-      recommendations.push('Muscle mass decreasing - review protein intake and resistance training.')
-    }
+      if (options?.days) {
+        systemPrompt += `\n\nThese photos were taken ${options.days} days apart.`
+      }
 
-    return {
-      overallScore: lastAnalysis.overallScore || 0,
-      progress,
-      recommendations,
-      strengths: lastAnalysis.strengths || [],
-      weaknesses: lastAnalysis.weaknesses || [],
+      const model = options?.model || 'claude-3-5-sonnet-20241022'
+
+      console.log('[Claude] Calling Claude API for progress...')
+
+      const response = await fetch(this.baseUrl, {
+        method: 'POST',
+        headers: {
+          'x-api-key': this.apiKey,
+          'anthropic-version': '2023-06-01',
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          model,
+          max_tokens: 4096,
+          system: systemPrompt,
+          messages: [
+            {
+              role: 'user',
+              content: [
+                ...images,
+                { type: 'text' as const, text: 'Compare these progress photos' },
+              ],
+            },
+          ],
+        }),
+      })
+
+      console.log('[Claude] Progress response status:', response.status)
+
+      if (!response.ok) {
+        const error = await response.json()
+        console.error('[Claude] Progress API Error:', JSON.stringify(error, null, 2))
+        throw new Error(`Claude API error: ${response.status} - ${error.error?.message || response.statusText}`)
+      }
+
+      const data = await response.json()
+      console.log('[Claude] Progress response received. Parsing...')
+
+      const content = data.content[0]?.text || ''
+      const jsonMatch = content.match(/\{[\s\S]*\}/)
+      if (!jsonMatch) {
+        console.error('[Claude] No JSON found in progress response')
+        throw new Error('No JSON found in Claude response')
+      }
+
+      const result = JSON.parse(jsonMatch[0])
+      console.log('[Claude] Progress result:', JSON.stringify(result, null, 2))
+
+      return {
+        scoreDiff: result.scoreDiff,
+        weightDiff: result.weightDiff,
+        muscleMassDiff: result.muscleMassDiff,
+        bodyFatDiff: result.bodyFatDiff,
+        improvements: result.improvements || [],
+        areasForImprovement: result.areasForImprovement || [],
+        summary: result.summary || '',
+      }
+    } catch (error) {
+      console.error('[Claude] Progress analysis error:', error)
+      throw error
     }
   }
 }
@@ -233,8 +357,12 @@ Respond ONLY in valid JSON format.`
 // Initialize client
 export const getClaudeClient = () => {
   const apiKey = process.env.ANTHROPIC_API_KEY
+  console.log('[Claude] Initializing client... ANTHROPIC_API_KEY found:', !!apiKey)
+
   if (!apiKey) {
+    console.error('[Claude] ANTHROPIC_API_KEY not found in environment variables')
     throw new Error('ANTHROPIC_API_KEY not found in environment variables')
   }
+
   return new ClaudeClient(apiKey)
 }

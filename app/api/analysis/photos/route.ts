@@ -4,17 +4,22 @@ import { getClaudeSyncService } from '@/lib/claude-sync'
 
 export async function POST(request: Request) {
   try {
+    console.log('[API] POST /api/analysis/photos - Starting...')
+
     const body = await request.json()
+    console.log('[API] Request body:', JSON.stringify(body, null, 2))
 
     const { imageUrl, height, gender, age, model } = body
 
     if (!imageUrl) {
+      console.error('[API] imageUrl is required')
       return NextResponse.json(
         { error: 'imageUrl is required' },
         { status: 400 }
       )
     }
 
+    console.log('[API] Calling syncService.analyzePhoto...')
     const syncService = getClaudeSyncService()
     const result = await syncService.analyzePhoto(imageUrl, {
       height,
@@ -22,11 +27,16 @@ export async function POST(request: Request) {
       age,
     })
 
+    console.log('[API] Analysis successful:', JSON.stringify(result, null, 2))
     return NextResponse.json(result, { status: 201 })
   } catch (error) {
-    console.error('Error analyzing photo:', error)
+    console.error('[API] Error analyzing photo:', error)
+    if (error instanceof Error) {
+      console.error('[API] Error message:', error.message)
+      console.error('[API] Error stack:', error.stack)
+    }
     return NextResponse.json(
-      { error: 'Failed to analyze photo' },
+      { error: 'Failed to analyze photo', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     )
   }
