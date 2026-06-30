@@ -88,25 +88,47 @@ export default function PhotosPage() {
       console.log('Envoi à l\'API...')
       setUploadProgress(75)
 
-      const res = await fetch('/api/analysis/photos', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      })
+      // Create AbortController with 2 minute timeout
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 120000) // 2 min
 
-      if (!res.ok) {
-        const errorData = await res.json()
-        console.error('API Error:', errorData)
-        throw new Error(errorData.error || errorData.details || `HTTP ${res.status}`)
+      try {
+        const res = await fetch('/api/analysis/photos', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+          signal: controller.signal
+        })
+
+        clearTimeout(timeoutId)
+
+        if (!res.ok) {
+          const errorText = await res.text()
+          console.error('API Error Response:', errorText)
+
+          let errorData
+          try {
+            errorData = JSON.parse(errorText)
+          } catch {
+            errorData = { error: errorText, details: errorText }
+          }
+
+          throw new Error(errorData.error || errorData.details || `HTTP ${res.status}`)
+        }
+
+        console.log('Réponse reçue...')
+        setUploadProgress(90)
+
+        const data = await res.json()
+        setResult(data)
+        fetchHistory()
+        setUploadProgress(100)
+      } catch (fetchError: any) {
+        if (fetchError.name === 'AbortError') {
+          throw new Error('Timeout (> 2 min). Image trop complexe ? Utilise une photo plus petite ou une URL.')
+        }
+        throw fetchError
       }
-
-      console.log('Réponse reçue...')
-      setUploadProgress(90)
-
-      const data = await res.json()
-      setResult(data)
-      fetchHistory()
-      setUploadProgress(100)
     } catch (error) {
       console.error('Error analyzing photo:', error)
       const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue'
