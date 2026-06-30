@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
+import { getOrCreateSystemUserId } from '@/lib/system-user'
 
 export async function POST(request: Request) {
   try {
@@ -15,9 +16,10 @@ export async function POST(request: Request) {
     }
 
     // MediaPipe runs in browser - server receives pre-analyzed data
+    const userId = await getOrCreateSystemUserId()
     const video = await prisma.video.create({
       data: {
-        userId: 'system', // TODO: Get from auth
+        userId,
         url: videoUrl,
         exercise: exercise || 'squat',
         duration: 0 // TODO: Calculate from video

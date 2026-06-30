@@ -1,7 +1,12 @@
 // Claude API Client
 // https://docs.anthropic.com/claude/reference/messages
 
-export type ClaudeModel = 'claude-sonnet-4-6' | 'claude-opus-4-8' | 'claude-haiku-4-5-20251001'
+export type ClaudeModel = 'claude-sonnet-5' | 'claude-opus-4-8' | 'claude-haiku-4-5-20251001'
+
+// Default model used when the caller doesn't specify one.
+// Must be a valid Anthropic model id (the previous 'claude-sonnet-4-6' did not exist
+// and made every Vision call fail with 404 model_not_found).
+const DEFAULT_MODEL: ClaudeModel = 'claude-sonnet-5'
 
 export interface ClaudeMessage {
   role: 'user' | 'assistant'
@@ -134,7 +139,7 @@ Return ONLY valid JSON with this exact structure:
         systemPrompt += `\n\nThe person is approximately ${options.age} years old.`
       }
 
-      const model = options?.model || 'claude-sonnet-4-6'
+      const model = options?.model || DEFAULT_MODEL
 
       console.log('[Claude] Calling Claude API with model:', model)
 
@@ -283,7 +288,7 @@ Return ONLY valid JSON:
         systemPrompt += `\n\nThese photos were taken ${options.days} days apart.`
       }
 
-      const model = options?.model || 'claude-sonnet-4-6'
+      const model = options?.model || DEFAULT_MODEL
 
       console.log('[Claude] Calling Claude API for progress...')
 

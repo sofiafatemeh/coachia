@@ -1,19 +1,10 @@
 import prisma from '@/lib/prisma'
+import { getOrCreateSystemUserId } from '@/lib/system-user'
 
 export class JournalSyncService {
   async syncMeals(options?: { days?: number }) {
-    const days = options?.days || 7
-    const startDate = new Date()
-    startDate.setDate(startDate.getDate() - days)
-
-    // Get system user
-    let user = await prisma.user.findUnique({
-      where: { email: 'system@example.com' },
-    })
-
-    if (!user) {
-      throw new Error('System user not found. Call /api/create-user first.')
-    }
+    // Ensure the system user exists even though sync is not implemented yet.
+    await getOrCreateSystemUserId()
 
     // TODO: Fetch meals from journal (manual entry or API)
     // For now, return empty result
@@ -30,19 +21,12 @@ export class JournalSyncService {
     const startOfDay = new Date(targetDate.setHours(0, 0, 0, 0))
     const endOfDay = new Date(targetDate.setHours(23, 59, 59, 999))
 
-    // Get system user
-    let user = await prisma.user.findUnique({
-      where: { email: 'system@example.com' },
-    })
-
-    if (!user) {
-      throw new Error('System user not found. Call /api/create-user first.')
-    }
+    const userId = await getOrCreateSystemUserId()
 
     // Get today's data
     const workouts = await prisma.workout.findMany({
       where: {
-        userId: user.id,
+        userId,
         completedAt: {
           gte: startOfDay,
           lt: endOfDay
@@ -52,7 +36,7 @@ export class JournalSyncService {
 
     const measurements = await prisma.measurement.findFirst({
       where: {
-        userId: user.id,
+        userId,
         createdAt: {
           gte: startOfDay,
           lt: endOfDay
@@ -62,7 +46,7 @@ export class JournalSyncService {
 
     const meals = await prisma.meal.findMany({
       where: {
-        userId: user.id,
+        userId,
         createdAt: {
           gte: startOfDay,
           lt: endOfDay

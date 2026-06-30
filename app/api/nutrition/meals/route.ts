@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getJournalSyncService } from '@/lib/journal-sync'
+import prisma from '@/lib/prisma'
 
 export async function POST(request: Request) {
   try {
@@ -43,8 +44,26 @@ export async function POST(request: Request) {
   }
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    const { searchParams } = new URL(request.url)
+    const userId = searchParams.get('userId')
+
+    // When a userId is provided (e.g. the dashboard), return the raw meals as an
+    // array so the client can list/aggregate them. The `date` param, if present,
+    // is treated as a lower bound ("meals since this date").
+    if (userId) {
+      const date = searchParams.get('date')
+      const meals = await prisma.meal.findMany({
+        where: {
+          userId,
+          ...(date ? { time: { gte: new Date(date) } } : {}),
+        },
+        orderBy: { time: 'desc' },
+      })
+      return NextResponse.json(meals)
+    }
+
     const syncService = getJournalSyncService()
     const result = await syncService.dailySummary()
 

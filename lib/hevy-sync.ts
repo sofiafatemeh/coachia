@@ -1,5 +1,6 @@
 import prisma from '@/lib/prisma'
-import { getHevyClient, type HevyWorkout, type HevyExercise, type HevySet } from '@/lib/heavy'
+import { getHevyClient, type HevyWorkout } from '@/lib/heavy'
+import { getOrCreateSystemUserId } from '@/lib/system-user'
 
 export class HevySyncService {
   private hevy = getHevyClient()
@@ -9,14 +10,7 @@ export class HevySyncService {
     const startDate = new Date()
     startDate.setDate(startDate.getDate() - days)
 
-    // Get system user
-    let user = await prisma.user.findUnique({
-      where: { email: 'system@example.com' },
-    })
-
-    if (!user) {
-      throw new Error('System user not found. Call /api/create-user first.')
-    }
+    const userId = await getOrCreateSystemUserId()
 
     // Fetch workouts from Hevy
     const { workouts } = await this.hevy.getWorkouts({
@@ -29,7 +23,7 @@ export class HevySyncService {
 
     for (const workout of workouts) {
       try {
-        await this.syncWorkout(workout, user.id)
+        await this.syncWorkout(workout, userId)
         synced++
       } catch (error) {
         console.error(`Error syncing workout ${workout.id}:`, error)
@@ -70,14 +64,7 @@ export class HevySyncService {
   }
 
   async syncBodyweight() {
-    // Get system user
-    let user = await prisma.user.findUnique({
-      where: { email: 'system@example.com' },
-    })
-
-    if (!user) {
-      throw new Error('System user not found. Call /api/create-user first.')
-    }
+    const userId = await getOrCreateSystemUserId()
 
     const { bodyweight } = await this.hevy.getBodyweight()
 
@@ -89,7 +76,7 @@ export class HevySyncService {
         // Check if bodyweight already exists (by date)
         const existing = await prisma.measurement.findFirst({
           where: {
-            userId: user.id,
+            userId,
             createdAt: {
               gte: new Date(bw.date),
               lt: new Date(new Date(bw.date).getTime() + 24 * 60 * 60 * 1000)
@@ -104,7 +91,7 @@ export class HevySyncService {
         // Create measurement
         await prisma.measurement.create({
           data: {
-            userId: user.id,
+            userId,
             weight: bw.weight_kg,
             createdAt: new Date(bw.date)
           }
