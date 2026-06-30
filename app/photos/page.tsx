@@ -34,18 +34,6 @@ export default function PhotosPage() {
     }
   }
 
-  const fileToBase64 = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader()
-      reader.readAsDataURL(file)
-      reader.onload = () => {
-        const base64 = (reader.result as string).split(',')[1]
-        resolve(base64)
-      }
-      reader.onerror = reject
-    })
-  }
-
   const analyzePhoto = async () => {
     if (!imageUrl && !imageFile) {
       alert('Sélectionnez une photo ou entrez une URL')
@@ -58,45 +46,62 @@ export default function PhotosPage() {
 
     try {
       console.log('Début analyse...')
-      const payload: any = {
-        height: height ? parseInt(height) : undefined,
-        gender,
-        age: age ? parseInt(age) : undefined
-      }
 
-      if (imageFile) {
-        console.log('Conversion en base64...')
-        setUploadProgress(25)
-
-        // Simple base64 conversion - no client-side compression
-        const base64 = await fileToBase64(imageFile)
-        const sizeMB = (base64.length * 0.75 / 1024 / 1024).toFixed(2)
-        console.log('Taille:', sizeMB, 'MB')
-
-        if (parseFloat(sizeMB) > 5) {
-          alert(`Image trop grande (${sizeMB} MB). Max 5MB. Utilise une image plus petite ou une URL.`)
-          setAnalyzing(false)
-          return
-        }
-
-        payload.imageBase64 = base64
+      if (imageUrl) {
+        // URL mode
         setUploadProgress(50)
-      } else {
-        payload.imageUrl = imageUrl
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), 120000)
+
+        try {
+          const res = await fetch('/api/analysis/photos', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ imageUrl, height, gender, age })
+          })
+
+          clearTimeout(timeoutId)
+
+          if (!res.ok) {
+            const errorText = await res.text()
+            let errorData
+            try { errorData = JSON.parse(errorText) } catch { errorData = { error: errorText } }
+            throw new Error(errorData.error || `HTTP ${res.status}`)
+          }
+
+          const data = await res.json()
+          setResult(data)
+          fetchHistory()
+          setUploadProgress(100)
+        } catch (fetchError: any) {
+          if (fetchError.name === 'AbortError') {
+            throw new Error('Timeout (> 2 min)')
+          }
+          throw fetchError
+        }
+        return
       }
 
-      console.log('Envoi à l\'API...')
-      setUploadProgress(75)
+      // File upload mode - use FormData
+      console.log('Upload fichier...')
+      setUploadProgress(25)
 
-      // Create AbortController with 2 minute timeout
+      const formData = new FormData()
+      formData.append('height', height)
+      formData.append('gender', gender)
+      formData.append('age', age)
+      formData.append('file', imageFile as File)
+
+      console.log('Envoi au serveur...')
+      setUploadProgress(50)
+
       const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 120000) // 2 min
+      const timeoutId = setTimeout(() => controller.abort(), 120000)
 
       try {
-        const res = await fetch('/api/analysis/photos', {
+        const res = await fetch('/api/analyze-photo', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
+          body: formData,
           signal: controller.signal
         })
 
@@ -104,16 +109,9 @@ export default function PhotosPage() {
 
         if (!res.ok) {
           const errorText = await res.text()
-          console.error('API Error Response:', errorText)
-
           let errorData
-          try {
-            errorData = JSON.parse(errorText)
-          } catch {
-            errorData = { error: errorText, details: errorText }
-          }
-
-          throw new Error(errorData.error || errorData.details || `HTTP ${res.status}`)
+          try { errorData = JSON.parse(errorText) } catch { errorData = { error: errorText } }
+          throw new Error(errorData.error || `HTTP ${res.status}`)
         }
 
         console.log('Réponse reçue...')
@@ -125,7 +123,7 @@ export default function PhotosPage() {
         setUploadProgress(100)
       } catch (fetchError: any) {
         if (fetchError.name === 'AbortError') {
-          throw new Error('Timeout (> 2 min). Image trop complexe ? Utilise une photo plus petite ou une URL.')
+          throw new Error('Timeout (> 2 min). Image trop grosse ?')
         }
         throw fetchError
       }
@@ -274,7 +272,7 @@ export default function PhotosPage() {
               </button>
 
               <div className="text-xs text-zinc-500 mt-2">
-                Max 5MB pour les fichiers. Pour plus de performance, utilisez une photo déjà redimensionnée ou une URL.
+                Upload via FormData (plus rapide). Compression automatique côté serveur.
               </div>
             </div>
           </div>
