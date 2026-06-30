@@ -178,14 +178,22 @@ export default function Home() {
           </div>
 
           <div className="bg-white p-6 rounded-lg border border-zinc-200">
-            <h3 className="text-lg font-semibold text-zinc-900 mb-2">🎯 Debug Upload</h3>
-            <p className="text-sm text-zinc-600 mb-4">Tester compression et upload photo</p>
-            <Link
-              href="/test-upload"
-              className="block w-full text-center px-4 py-2 bg-zinc-900 text-white rounded-lg hover:bg-zinc-800 transition text-sm"
+            <h3 className="text-lg font-semibold text-zinc-900 mb-2">📈 Progression</h3>
+            <p className="text-sm text-zinc-600 mb-4">Analyse de progression sur 30 jours</p>
+            <button
+              onClick={async () => {
+                try {
+                  const res = await fetch('/api/analysis/photos?action=progress&days=30')
+                  const data = await res.json()
+                  alert(`📊 Score actuel: ${data.currentScore}/100\n🎯 Objectif: ${data.targetScore}/100\n✅ Amélioration: ${data.improvement || 0}%`)
+                } catch (error) {
+                  alert('❌ Erreur')
+                }
+              }}
+              className="w-full px-4 py-2 bg-zinc-900 text-white rounded-lg hover:bg-zinc-800 transition text-sm"
             >
-              Tester upload
-            </Link>
+              Voir progression
+            </button>
           </div>
         </div>
       </main>
