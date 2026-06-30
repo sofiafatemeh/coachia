@@ -26,10 +26,55 @@ export default function PhotosPage() {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
+      // Limit file size to 2MB
+      if (file.size > 2 * 1024 * 1024) {
+        alert('Image trop grande. Max 2MB. Réduis la taille ou utilise une URL.')
+        return
+      }
       setImageFile(file)
       setPreviewUrl(URL.createObjectURL(file))
       setImageUrl('')
     }
+  }
+
+  const compressImage = (file: File, maxWidth: number = 800): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.readAsDataURL(file)
+      reader.onload = (e) => {
+        const img = new Image()
+        img.src = e.target?.result as string
+        img.onload = () => {
+          const canvas = document.createElement('canvas')
+          let width = img.width
+          let height = img.height
+
+          // Scale down if too large
+          if (width > maxWidth) {
+            height = (height * maxWidth) / width
+            width = maxWidth
+          }
+
+          canvas.width = width
+          canvas.height = height
+
+          const ctx = canvas.getContext('2d')
+          if (!ctx) {
+            reject(new Error('Canvas context error'))
+            return
+          }
+
+          ctx.drawImage(img, 0, 0, width, height)
+
+          // Compress to JPEG with 0.7 quality
+          const compressed = canvas.toDataURL('image/jpeg', 0.7)
+          const base64 = compressed.split(',')[1]
+          resolve(base64)
+        }
+        img.onerror = reject
+      }
+      reader.onerror = reject
+    })
   }
 
   const fileToBase64 = (file: File): Promise<string> => {
@@ -55,6 +100,7 @@ export default function PhotosPage() {
     setResult(null)
 
     try {
+      console.log('Début analyse...')
       const payload: any = {
         height: height ? parseInt(height) : undefined,
         gender,
@@ -62,18 +108,29 @@ export default function PhotosPage() {
       }
 
       if (imageFile) {
-        const base64 = await fileToBase64(imageFile)
+        // Compress image before sending
+        console.log('Compression image...')
+        const base64 = await compressImage(imageFile)
+        console.log('Image compressée:', (base64.length * 0.75 / 1024 / 1024).toFixed(2), 'MB')
         payload.imageBase64 = base64
       } else {
         payload.imageUrl = imageUrl
       }
 
+      console.log('Envoi à l\'API...')
       const res = await fetch('/api/analysis/photos', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       })
 
+      if (!res.ok) {
+        const errorData = await res.json()
+        console.error('API Error:', errorData)
+        throw new Error(errorData.error || errorData.details || `HTTP ${res.status}`)
+      }
+
+      console.log('Réponse reçue...')
       const data = await res.json()
       if (res.ok) {
         setResult(data)
@@ -83,7 +140,8 @@ export default function PhotosPage() {
       }
     } catch (error) {
       console.error('Error analyzing photo:', error)
-      alert('Erreur lors de l\'analyse')
+      const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue'
+      alert(`Erreur: ${errorMessage}`)
     } finally {
       setAnalyzing(false)
     }
@@ -191,7 +249,15 @@ export default function PhotosPage() {
                 disabled={analyzing || (!imageUrl && !imageFile)}
                 className="w-full px-6 py-3 bg-zinc-900 text-white rounded-lg hover:bg-zinc-800 transition font-medium disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {analyzing ? 'Analyse en cours...' : '🔍 Analyser'}
+                {analyzing ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Analyse en cours...
+                  </span>
+                ) : '🔍 Analyser'}
               </button>
             </div>
           </div>
