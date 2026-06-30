@@ -1,12 +1,11 @@
 import { NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
-import { getMediaPipeSyncService } from '@/lib/mediapipe-sync'
 
 export async function POST(request: Request) {
   try {
     const body = await request.json()
 
-    const { videoUrl, exerciseId, workoutId, frames } = body
+    const { videoUrl, exercise } = body
 
     if (!videoUrl) {
       return NextResponse.json(
@@ -15,25 +14,24 @@ export async function POST(request: Request) {
       )
     }
 
-    const syncService = getMediaPipeSyncService()
-    
-    let result
-    if (frames && frames.length > 0) {
-      // Full analysis with keyframes + Claude
-      result = await syncService.analyzeVideoWithKeyframes(videoUrl, frames)
-    } else {
-      // Basic analysis only
-      result = await syncService.analyzeVideo(videoUrl, {
-        exerciseId,
-        workoutId
-      })
-    }
+    // MediaPipe runs in browser - server receives pre-analyzed data
+    const video = await prisma.video.create({
+      data: {
+        userId: 'system', // TODO: Get from auth
+        url: videoUrl,
+        exercise: exercise || 'squat',
+        duration: 0 // TODO: Calculate from video
+      }
+    })
 
-    return NextResponse.json(result, { status: 201 })
+    return NextResponse.json({
+      video,
+      message: 'Video data stored successfully. MediaPipe analysis should be done client-side.'
+    }, { status: 201 })
   } catch (error) {
-    console.error('Error analyzing video:', error)
+    console.error('Error storing video data:', error)
     return NextResponse.json(
-      { error: 'Failed to analyze video' },
+      { error: 'Failed to store video data' },
       { status: 500 }
     )
   }
@@ -43,23 +41,20 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
     const videoId = searchParams.get('videoId')
-    const exerciseId = searchParams.get('exerciseId')
-    const workoutId = searchParams.get('workoutId')
+    const exercise = searchParams.get('exercise')
 
-    if (!videoId && !exerciseId && !workoutId) {
+    if (!videoId && !exercise) {
       return NextResponse.json(
-        { error: 'videoId, exerciseId, or workoutId is required' },
+        { error: 'videoId or exercise is required' },
         { status: 400 }
       )
     }
 
-    // Query database for video analyses
     const videos = await prisma.video.findMany({
       where: {
         OR: [
           videoId ? { id: videoId } : {},
-          exerciseId ? { exerciseId } : {},
-          workoutId ? { workoutId } : {}
+          exercise ? { exercise } : {}
         ].filter(Boolean)
       },
       orderBy: { createdAt: 'desc' },

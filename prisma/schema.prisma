@@ -33,10 +33,13 @@ model Measurement {
   user        User     @relation(fields: [userId], references: [id])
 
   // Body measurements
-  weight      Float
+  weight      Float?   // kg
   bodyFat     Float?   // %
   muscleMass  Float?
   bmi         Float?
+
+  // Claude Vision data
+  claudeData  Json?    // Raw data from Claude Vision
 
   // BodyScore data
   bodyScoreId String?  // BodyScore AI ID

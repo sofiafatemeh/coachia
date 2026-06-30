@@ -16,10 +16,10 @@ export class ClaudeSyncService {
     const measurement = await prisma.measurement.create({
       data: {
         userId: 'system', // TODO: Get from auth
-        weight: analysis.weight || null,
-        bodyFat: analysis.bodyFat || null,
-        muscleMass: analysis.muscleMass || null,
-        bmi: analysis.bmi || null,
+        weight: analysis.weight ?? null,
+        bodyFat: analysis.bodyFat ?? null,
+        muscleMass: analysis.muscleMass ?? null,
+        bmi: analysis.bmi ?? null,
         claudeData: {
           muscleScores: {
             chest: analysis.chestScore,
@@ -39,16 +39,7 @@ export class ClaudeSyncService {
       }
     })
 
-    // Also create progress photo
-    await prisma.progressPhoto.create({
-      data: {
-        userId: 'system', // TODO: Get from auth
-        url: photoUrl,
-        angle: this.detectAngle(photoUrl),
-        notes: `Claude analysis - Overall score: ${analysis.overallScore}/100`,
-        measurementId: measurement.id
-      }
-    })
+    // TODO: Also create progress photo (requires schema update)
 
     return {
       measurement,

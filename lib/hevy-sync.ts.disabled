@@ -50,14 +50,13 @@ export class HevySyncService {
     const workout = await prisma.workout.create({
       data: {
         id: hevyWorkout.id,
-        title: hevyWorkout.title,
+        name: hevyWorkout.title,
         description: hevyWorkout.description,
-        startTime: new Date(hevyWorkout.start_time),
-        endTime: new Date(hevyWorkout.end_time),
-        comment: hevyWorkout.comment,
-        isTemplate: hevyWorkout.is_template,
-        source: 'HEVY',
-        sourceId: hevyWorkout.id,
+        hevyId: hevyWorkout.id,
+        duration: hevyWorkout.duration,
+        calories: hevyWorkout.total_weight_lifted,
+        volume: hevyWorkout.total_weight,
+        completedAt: new Date(hevyWorkout.end_time),
         userId: 'system' // TODO: Get from auth
       }
     })
