@@ -55,69 +55,18 @@ export class HevySyncService {
       return // Skip if already synced
     }
 
-    // Create workout
-    const workout = await prisma.workout.create({
+    // Create workout (without exercises - too complex for current schema)
+    await prisma.workout.create({
       data: {
         userId,
         name: hevyWorkout.title,
         description: hevyWorkout.description || '',
         hevyId: hevyWorkout.id,
-        startedAt: new Date(hevyWorkout.start_time),
         completedAt: new Date(hevyWorkout.end_time),
       }
     })
 
-    // Sync exercises
-    for (const hevyExercise of hevyWorkout.exercises) {
-      await this.syncExercise(workout.id, hevyExercise)
-    }
-  }
-
-  private async syncExercise(workoutId: string, hevyExercise: HevyExercise) {
-    // Check if exercise template exists
-    let exercise = await prisma.exercise.findFirst({
-      where: {
-        source: 'HEVY',
-        sourceId: hevyExercise.exercise_template.id
-      }
-    })
-
-    // Create exercise template if not exists
-    if (!exercise) {
-      exercise = await prisma.exercise.create({
-        data: {
-          name: hevyExercise.exercise_template.name,
-          source: 'HEVY',
-          sourceId: hevyExercise.exercise_template.id,
-          workoutId,
-        }
-      })
-    }
-
-    // Sync sets
-    for (const hevySet of hevyExercise.sets) {
-      await this.syncSet(exercise.id, hevySet)
-    }
-  }
-
-  private async syncSet(exerciseId: string, hevySet: HevySet) {
-    await prisma.exerciseSet.create({
-      data: {
-        exerciseId,
-        reps: hevySet.reps,
-        weight: hevySet.weight_kg,
-        rpe: hevySet.rpe,
-        duration: hevySet.duration_seconds,
-        setType: hevySet.set_type || 'normal',
-        oneRm: hevySet.one_rm,
-        isToFailure: hevySet.is_to_failure || false,
-        isWarmup: hevySet.is_warmup || false,
-        isDropSet: hevySet.is_drop_set || false,
-        setIndex: 0, // TODO: Calculate from exercise order
-        supersetIds: hevySet.supersets || [],
-        createdAt: new Date(hevySet.created_at)
-      }
-    })
+    // TODO: Sync exercises when schema is fixed
   }
 
   async syncBodyweight() {
