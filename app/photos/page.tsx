@@ -20,61 +20,18 @@ export default function PhotosPage() {
   const [gender, setGender] = useState('male')
   const [age, setAge] = useState('')
   const [analyzing, setAnalyzing] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState(0)
   const [result, setResult] = useState<AnalysisResult | null>(null)
   const [history, setHistory] = useState<any[]>([])
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
-      // Limit file size to 2MB
-      if (file.size > 2 * 1024 * 1024) {
-        alert('Image trop grande. Max 2MB. Réduis la taille ou utilise une URL.')
-        return
-      }
       setImageFile(file)
       setPreviewUrl(URL.createObjectURL(file))
       setImageUrl('')
+      console.log('Fichier:', file.name, file.size, 'bytes', file.type)
     }
-  }
-
-  const compressImage = (file: File, maxWidth: number = 800): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader()
-      reader.readAsDataURL(file)
-      reader.onload = (e) => {
-        const img = new Image()
-        img.src = e.target?.result as string
-        img.onload = () => {
-          const canvas = document.createElement('canvas')
-          let width = img.width
-          let height = img.height
-
-          // Scale down if too large
-          if (width > maxWidth) {
-            height = (height * maxWidth) / width
-            width = maxWidth
-          }
-
-          canvas.width = width
-          canvas.height = height
-
-          const ctx = canvas.getContext('2d')
-          if (!ctx) {
-            reject(new Error('Canvas context error'))
-            return
-          }
-
-          ctx.drawImage(img, 0, 0, width, height)
-
-          // Compress to JPEG with 0.7 quality
-          const compressed = canvas.toDataURL('image/jpeg', 0.7)
-          const base64 = compressed.split(',')[1]
-          resolve(base64)
-        }
-        img.onerror = reject
-      }
-      reader.onerror = reject
-    })
   }
 
   const fileToBase64 = (file: File): Promise<string> => {
@@ -82,7 +39,6 @@ export default function PhotosPage() {
       const reader = new FileReader()
       reader.readAsDataURL(file)
       reader.onload = () => {
-        // Remove data URL prefix (e.g., "data:image/jpeg;base64,")
         const base64 = (reader.result as string).split(',')[1]
         resolve(base64)
       }
@@ -97,6 +53,7 @@ export default function PhotosPage() {
     }
 
     setAnalyzing(true)
+    setUploadProgress(0)
     setResult(null)
 
     try {
@@ -108,16 +65,29 @@ export default function PhotosPage() {
       }
 
       if (imageFile) {
-        // Compress image before sending
-        console.log('Compression image...')
-        const base64 = await compressImage(imageFile)
-        console.log('Image compressée:', (base64.length * 0.75 / 1024 / 1024).toFixed(2), 'MB')
+        console.log('Conversion en base64...')
+        setUploadProgress(25)
+
+        // Simple base64 conversion - no client-side compression
+        const base64 = await fileToBase64(imageFile)
+        const sizeMB = (base64.length * 0.75 / 1024 / 1024).toFixed(2)
+        console.log('Taille:', sizeMB, 'MB')
+
+        if (parseFloat(sizeMB) > 5) {
+          alert(`Image trop grande (${sizeMB} MB). Max 5MB. Utilise une image plus petite ou une URL.`)
+          setAnalyzing(false)
+          return
+        }
+
         payload.imageBase64 = base64
+        setUploadProgress(50)
       } else {
         payload.imageUrl = imageUrl
       }
 
       console.log('Envoi à l\'API...')
+      setUploadProgress(75)
+
       const res = await fetch('/api/analysis/photos', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -131,19 +101,19 @@ export default function PhotosPage() {
       }
 
       console.log('Réponse reçue...')
+      setUploadProgress(90)
+
       const data = await res.json()
-      if (res.ok) {
-        setResult(data)
-        fetchHistory()
-      } else {
-        alert(`Erreur: ${data.error || 'Analyse échouée'}`)
-      }
+      setResult(data)
+      fetchHistory()
+      setUploadProgress(100)
     } catch (error) {
       console.error('Error analyzing photo:', error)
       const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue'
       alert(`Erreur: ${errorMessage}`)
     } finally {
       setAnalyzing(false)
+      setTimeout(() => setUploadProgress(0), 1000)
     }
   }
 
@@ -200,6 +170,11 @@ export default function PhotosPage() {
                     className="w-full px-4 py-2 border border-zinc-300 rounded-lg focus:ring-2 focus:ring-zinc-500 focus:border-transparent"
                   />
                 </div>
+                {imageFile && (
+                  <div className="mt-2 text-sm text-zinc-600">
+                    Fichier: {imageFile.name} ({(imageFile.size / 1024 / 1024).toFixed(2)} MB)
+                  </div>
+                )}
                 {previewUrl && (
                   <div className="mt-4">
                     <div className="text-sm text-zinc-600 mb-2">Preview:</div>
@@ -244,6 +219,22 @@ export default function PhotosPage() {
                   className="w-full px-4 py-2 border border-zinc-300 rounded-lg focus:ring-2 focus:ring-zinc-500 focus:border-transparent"
                 />
               </div>
+
+              {/* Progress bar */}
+              {analyzing && (
+                <div className="mt-4">
+                  <div className="text-sm text-zinc-600 mb-2">
+                    {uploadProgress < 50 ? 'Préparation...' : uploadProgress < 75 ? 'Envoi...' : uploadProgress < 90 ? 'Analyse...' : 'Terminé!'}
+                  </div>
+                  <div className="w-full bg-zinc-200 rounded-full h-2">
+                    <div
+                      className="bg-zinc-900 h-2 rounded-full transition-all duration-300"
+                      style={{ width: `${uploadProgress}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+
               <button
                 onClick={analyzePhoto}
                 disabled={analyzing || (!imageUrl && !imageFile)}
@@ -255,10 +246,14 @@ export default function PhotosPage() {
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
-                    Analyse en cours...
+                    {uploadProgress < 50 ? 'Préparation...' : uploadProgress < 75 ? 'Envoi...' : 'Analyse...'}
                   </span>
                 ) : '🔍 Analyser'}
               </button>
+
+              <div className="text-xs text-zinc-500 mt-2">
+                Max 5MB pour les fichiers. Pour plus de performance, utilisez une photo déjà redimensionnée ou une URL.
+              </div>
             </div>
           </div>
 
