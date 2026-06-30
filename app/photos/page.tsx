@@ -14,6 +14,8 @@ interface AnalysisResult {
 
 export default function PhotosPage() {
   const [imageUrl, setImageUrl] = useState('')
+  const [imageFile, setImageFile] = useState<File | null>(null)
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [height, setHeight] = useState('')
   const [gender, setGender] = useState('male')
   const [age, setAge] = useState('')
@@ -21,9 +23,31 @@ export default function PhotosPage() {
   const [result, setResult] = useState<AnalysisResult | null>(null)
   const [history, setHistory] = useState<any[]>([])
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      setImageFile(file)
+      setPreviewUrl(URL.createObjectURL(file))
+      setImageUrl('')
+    }
+  }
+
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.readAsDataURL(file)
+      reader.onload = () => {
+        // Remove data URL prefix (e.g., "data:image/jpeg;base64,")
+        const base64 = (reader.result as string).split(',')[1]
+        resolve(base64)
+      }
+      reader.onerror = reject
+    })
+  }
+
   const analyzePhoto = async () => {
-    if (!imageUrl) {
-      alert('URL de l\'image requise')
+    if (!imageUrl && !imageFile) {
+      alert('Sélectionnez une photo ou entrez une URL')
       return
     }
 
@@ -31,15 +55,23 @@ export default function PhotosPage() {
     setResult(null)
 
     try {
+      const payload: any = {
+        height: height ? parseInt(height) : undefined,
+        gender,
+        age: age ? parseInt(age) : undefined
+      }
+
+      if (imageFile) {
+        const base64 = await fileToBase64(imageFile)
+        payload.imageBase64 = base64
+      } else {
+        payload.imageUrl = imageUrl
+      }
+
       const res = await fetch('/api/analysis/photos', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          imageUrl,
-          height: height ? parseInt(height) : undefined,
-          gender,
-          age: age ? parseInt(age) : undefined
-        })
+        body: JSON.stringify(payload)
       })
 
       const data = await res.json()
@@ -88,19 +120,32 @@ export default function PhotosPage() {
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-zinc-700 mb-1">
-                  URL de l'image *
+                  📷 Photo
                 </label>
-                <input
-                  type="url"
-                  value={imageUrl}
-                  onChange={(e) => setImageUrl(e.target.value)}
-                  placeholder="https://exemple.com/photo.jpg"
-                  className="w-full px-4 py-2 border border-zinc-300 rounded-lg focus:ring-2 focus:ring-zinc-500 focus:border-transparent"
-                  required
-                />
-                {imageUrl && (
-                  <div className="mt-2">
-                    <img src={imageUrl} alt="Preview" className="w-full max-h-64 object-contain rounded-lg border border-zinc-200" />
+                <div className="space-y-2">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileChange}
+                    className="w-full px-4 py-2 border border-zinc-300 rounded-lg focus:ring-2 focus:ring-zinc-500 focus:border-transparent file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-zinc-100 file:text-zinc-700 hover:file:bg-zinc-200"
+                  />
+                  <div className="text-center text-zinc-500 text-sm">ou</div>
+                  <input
+                    type="url"
+                    value={imageUrl}
+                    onChange={(e) => {
+                      setImageUrl(e.target.value)
+                      setImageFile(null)
+                      setPreviewUrl(null)
+                    }}
+                    placeholder="https://exemple.com/photo.jpg"
+                    className="w-full px-4 py-2 border border-zinc-300 rounded-lg focus:ring-2 focus:ring-zinc-500 focus:border-transparent"
+                  />
+                </div>
+                {previewUrl && (
+                  <div className="mt-4">
+                    <div className="text-sm text-zinc-600 mb-2">Preview:</div>
+                    <img src={previewUrl} alt="Preview" className="w-full max-h-64 object-contain rounded-lg border border-zinc-200" />
                   </div>
                 )}
               </div>
@@ -143,10 +188,10 @@ export default function PhotosPage() {
               </div>
               <button
                 onClick={analyzePhoto}
-                disabled={analyzing || !imageUrl}
+                disabled={analyzing || (!imageUrl && !imageFile)}
                 className="w-full px-6 py-3 bg-zinc-900 text-white rounded-lg hover:bg-zinc-800 transition font-medium disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {analyzing ? 'Analyse en cours...' : 'Analyser'}
+                {analyzing ? 'Analyse en cours...' : '🔍 Analyser'}
               </button>
             </div>
           </div>

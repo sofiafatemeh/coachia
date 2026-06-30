@@ -9,19 +9,22 @@ export async function POST(request: Request) {
     const body = await request.json()
     console.log('[API] Request body:', JSON.stringify(body, null, 2))
 
-    const { imageUrl, height, gender, age, model } = body
+    const { imageUrl, imageBase64, height, gender, age, model } = body
 
-    if (!imageUrl) {
-      console.error('[API] imageUrl is required')
+    if (!imageUrl && !imageBase64) {
+      console.error('[API] imageUrl or imageBase64 is required')
       return NextResponse.json(
-        { error: 'imageUrl is required' },
+        { error: 'imageUrl or imageBase64 is required' },
         { status: 400 }
       )
     }
 
+    // Convert base64 to data URL if needed
+    const finalImageUrl = imageBase64 ? `data:image/jpeg;base64,${imageBase64}` : imageUrl
+
     console.log('[API] Calling syncService.analyzePhoto...')
     const syncService = getClaudeSyncService()
-    const result = await syncService.analyzePhoto(imageUrl, {
+    const result = await syncService.analyzePhoto(finalImageUrl, {
       height,
       gender,
       age,
