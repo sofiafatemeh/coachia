@@ -4,6 +4,23 @@ import { getClaudeClient, type ClaudeVisionAnalysis } from '@/lib/claude'
 export class ClaudeSyncService {
   private claude = getClaudeClient()
 
+  private async getOrCreateSystemUser() {
+    let user = await prisma.user.findUnique({
+      where: { email: 'system@example.com' },
+    })
+
+    if (!user) {
+      user = await prisma.user.create({
+        data: {
+          email: 'system@example.com',
+          name: 'System User',
+        },
+      })
+    }
+
+    return user.id
+  }
+
   async analyzePhoto(photoUrl: string, options?: {
     height?: number
     gender?: 'male' | 'female'
@@ -12,10 +29,13 @@ export class ClaudeSyncService {
     // Analyze photo with Claude Vision
     const analysis = await this.claude.analyzePhoto(photoUrl, options)
 
+    // Get system user ID
+    const userId = await this.getOrCreateSystemUser()
+
     // Create measurement in database
     const measurement = await prisma.measurement.create({
       data: {
-        userId: 'system', // TODO: Get from auth
+        userId,
         weight: analysis.weight ?? null,
         bodyFat: analysis.bodyFat ?? null,
         muscleMass: analysis.muscleMass ?? null,
