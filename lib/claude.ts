@@ -1,7 +1,7 @@
 // Claude API Client
 // https://docs.anthropic.com/claude/reference/messages
 
-export type ClaudeModel = 'claude-sonnet-4-20250514' | 'claude-3-haiku-20240307' | 'claude-3-opus-20240229'
+export type ClaudeModel = 'claude-3-5-sonnet-20240620' | 'claude-3-haiku-20240307' | 'claude-3-opus-20240229'
 
 export interface ClaudeMessage {
   role: 'user' | 'assistant'
@@ -134,7 +134,7 @@ Return ONLY valid JSON with this exact structure:
         systemPrompt += `\n\nThe person is approximately ${options.age} years old.`
       }
 
-      const model = options?.model || 'claude-sonnet-4-20250514'
+      const model = options?.model || 'claude-3-5-sonnet-20240620'
 
       console.log('[Claude] Calling Claude API with model:', model)
 
@@ -283,7 +283,7 @@ Return ONLY valid JSON:
         systemPrompt += `\n\nThese photos were taken ${options.days} days apart.`
       }
 
-      const model = options?.model || 'claude-sonnet-4-20250514'
+      const model = options?.model || 'claude-3-5-sonnet-20240620'
 
       console.log('[Claude] Calling Claude API for progress...')
 
