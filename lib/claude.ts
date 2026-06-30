@@ -66,8 +66,6 @@ export class ClaudeClient {
     console.log('[Claude] Options:', JSON.stringify(options, null, 2))
 
     try {
-      // Fetch image and convert to base64
-      console.log('[Claude] Fetching image...')
       const imageResponse = await fetch(imageUrl)
       if (!imageResponse.ok) {
         throw new Error(`Failed to fetch image: ${imageResponse.statusText}`)
@@ -79,7 +77,6 @@ export class ClaudeClient {
 
       console.log('[Claude] Image fetched. Size:', imageBuffer.byteLength, 'bytes. Type:', mediaType)
 
-      // Build system prompt
       let systemPrompt = `You are an expert fitness coach analyzing physique photos. Provide a detailed analysis including:
 
 1. Overall score (0-100) based on:
@@ -184,7 +181,6 @@ Return ONLY valid JSON with this exact structure:
       const content = data.content[0]?.text || ''
       console.log('[Claude] Raw response:', content.substring(0, 200))
 
-      // Extract JSON from response
       const jsonMatch = content.match(/\{[\s\S]*\}/)
       if (!jsonMatch) {
         console.error('[Claude] No JSON found in response')
@@ -194,7 +190,6 @@ Return ONLY valid JSON with this exact structure:
       const result = JSON.parse(jsonMatch[0])
       console.log('[Claude] Parsed result:', JSON.stringify(result, null, 2))
 
-      // Validate result
       if (typeof result.overallScore !== 'number' || typeof result.confidence !== 'number') {
         console.error('[Claude] Invalid result structure:', result)
         throw new Error('Invalid Claude response structure')
@@ -241,8 +236,6 @@ Return ONLY valid JSON with this exact structure:
     console.log('[Claude] Photo URLs:', photoUrls.length, 'photos')
 
     try {
-      // Fetch all images
-      console.log('[Claude] Fetching images...')
       const imagePromises = photoUrls.map(async (url) => {
         const response = await fetch(url)
         if (!response.ok) {
@@ -264,7 +257,7 @@ Return ONLY valid JSON with this exact structure:
       const images = await Promise.all(imagePromises)
       console.log('[Claude] Images fetched:', images.length)
 
-      const systemPrompt = `You are an expert fitness coach analyzing progress photos. Compare the physique evolution.
+      let systemPrompt = `You are an expert fitness coach analyzing progress photos. Compare the physique evolution.
 
 Provide:
 1. Overall score difference (positive = improvement)
@@ -354,7 +347,6 @@ Return ONLY valid JSON:
   }
 }
 
-// Initialize client
 export const getClaudeClient = () => {
   const apiKey = process.env.ANTHROPIC_API_KEY
   console.log('[Claude] Initializing client... ANTHROPIC_API_KEY found:', !!apiKey)
