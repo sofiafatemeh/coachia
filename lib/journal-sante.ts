@@ -19,6 +19,17 @@ export interface JournalMealsResponse {
   meals: JournalMeal[]
 }
 
+export interface JournalMeasurement {
+  id: string
+  measuredAt: string
+  weightKg?: number | null
+  waistCm?: number | null
+  thighCm?: number | null
+  neckCm?: number | null
+  bicepsCm?: number | null
+  notes?: string | null
+}
+
 export class JournalSanteClient {
   private baseUrl: string
 
@@ -29,10 +40,13 @@ export class JournalSanteClient {
   private async request<T>(endpoint: string, options?: RequestInit): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`
 
+    const secret = process.env.JOURNAL_SANTE_SECRET
     const response = await fetch(url, {
       ...options,
+      cache: 'no-store',
       headers: {
         'Content-Type': 'application/json',
+        ...(secret ? { Authorization: `Bearer ${secret}` } : {}),
         ...options?.headers,
       },
     })
@@ -64,8 +78,8 @@ export class JournalSanteClient {
   }
 
   // MEASUREMENTS
-  async getMeasurements() {
-    const data = await this.request<{ measurements: any[] }>('/measurements')
+  async getMeasurements(): Promise<JournalMeasurement[]> {
+    const data = await this.request<{ measurements: JournalMeasurement[] }>('/measurements')
     return data.measurements
   }
 

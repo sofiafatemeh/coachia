@@ -5,6 +5,7 @@ import { getClaudeClient, type ClaudeMorphoImage, type ClaudeMorphoAnalysis } fr
 import { getOrCreateSystemUserId } from '@/lib/system-user'
 import { uploadProgressPhoto } from '@/lib/blob'
 import { sendAdviceEmail, renderAdviceEmail } from '@/lib/email'
+import { getJournalSyncService } from '@/lib/journal-sync'
 
 export interface WeeklyPhotoInput {
   angle: 'front' | 'side' | 'back'
@@ -104,6 +105,16 @@ export async function runWeeklyAnalysis(
   const userId = await getOrCreateSystemUserId()
   const weekOf = startOfIsoWeek()
   const wk = weekKey(weekOf)
+
+  // Pull the latest weight + mensurations (and nutrition) from Journal Santé first,
+  // so the analysis uses fresh values. Non-blocking: an outage must not fail the run.
+  if (process.env.JOURNAL_SANTE_API_URL) {
+    try {
+      await getJournalSyncService().syncAll()
+    } catch (err) {
+      console.error('[morpho] Journal Santé sync failed (non-blocking):', err)
+    }
+  }
 
   // 1. Store photos (Blob) + ProgressPhoto rows, and prepare images for Claude.
   const images: ClaudeMorphoImage[] = []

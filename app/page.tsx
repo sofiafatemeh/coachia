@@ -193,21 +193,22 @@ export default function Home() {
           </div>
 
           <div className="bg-white p-6 rounded-lg border border-zinc-200">
-            <h3 className="text-lg font-semibold text-zinc-900 mb-2">🍽️ Journal Nutrition</h3>
-            <p className="text-sm text-zinc-600 mb-4">Résumé nutritionnel quotidien</p>
+            <h3 className="text-lg font-semibold text-zinc-900 mb-2">🩺 Journal Santé</h3>
+            <p className="text-sm text-zinc-600 mb-4">Importer poids, mensurations et nutrition</p>
             <button
               onClick={async () => {
                 try {
-                  const res = await fetch('/api/nutrition/meals')
+                  const res = await fetch('/api/journal/sync', { method: 'POST' })
                   const data = await res.json()
-                  alert(`📅 ${data.date}\n🏋️ ${data.workouts} séances\n⚖️ Poids: ${data.measurements?.weight || 'N/A'} kg`)
+                  if (!res.ok || !data.success) throw new Error(data.details || data.error || 'Erreur')
+                  alert(`✅ ${data.message}`)
                 } catch (error) {
-                  alert('❌ Erreur')
+                  alert(`❌ ${error instanceof Error ? error.message : 'Erreur de sync'}`)
                 }
               }}
               className="w-full px-4 py-2 bg-zinc-900 text-white rounded-lg hover:bg-zinc-800 transition text-sm"
             >
-              Voir résumé
+              Synchroniser
             </button>
           </div>
 
