@@ -4,6 +4,7 @@ import prisma from '@/lib/prisma'
 import { getClaudeClient, type ClaudeMorphoImage } from '@/lib/claude'
 import { getOrCreateSystemUserId } from '@/lib/system-user'
 import { uploadProgressPhoto } from '@/lib/blob'
+import { getActiveExerciseNotes, notesForExercise, generalNotes, formatNotesForPrompt } from '@/lib/exercise-notes'
 
 export const runtime = 'nodejs'
 export const maxDuration = 120
@@ -34,12 +35,16 @@ export async function POST(request: Request) {
       images.push({ angle: 'frame', base64, mediaType: 'image/jpeg' })
     }
 
+    // Known execution/technique notes (unilateral variants, load conventions, deliberate
+    // tempo choices...) so the analysis doesn't misjudge deliberate technique as a flaw.
+    const userId = await getOrCreateSystemUserId()
+    const activeNotes = await getActiveExerciseNotes(userId)
+    const relevantNotes = [...notesForExercise(activeNotes, exercise), ...generalNotes(activeNotes)]
+    const context = formatNotesForPrompt(relevantNotes)
+
     // Analyse execution/form.
     const claude = getClaudeClient()
-    const analysis = await claude.analyzeExerciseForm(images, exercise)
-
-    // Store a representative thumbnail (first frame) so the Video row has a URL.
-    const userId = await getOrCreateSystemUserId()
+    const analysis = await claude.analyzeExerciseForm(images, exercise, { context })
     let url = ''
     try {
       url = await uploadProgressPhoto(Buffer.from(images[0].base64, 'base64'), {

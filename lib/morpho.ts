@@ -7,6 +7,7 @@ import { uploadProgressPhoto } from '@/lib/blob'
 import { sendAdviceEmail, renderAdviceEmail } from '@/lib/email'
 import { getJournalSyncService } from '@/lib/journal-sync'
 import { getHevySyncService } from '@/lib/hevy-sync'
+import { getActiveExerciseNotes, notesForExercise, generalNotes, formatNotesForPrompt } from '@/lib/exercise-notes'
 
 export interface WeeklyPhotoInput {
   angle: 'front' | 'side' | 'back'
@@ -65,12 +66,19 @@ async function buildHevyContext(userId: string): Promise<string> {
     return 'No Hevy training data available yet for this athlete. Give general morpho-based advice and note that exercise-specific tuning will improve once training data is synced.'
   }
 
+  const activeNotes = await getActiveExerciseNotes(userId)
+
   const lines = [...best.entries()]
     .sort((a, b) => b[1].count - a[1].count)
     .slice(0, 20)
-    .map(([name, s]) =>
-      `- ${name}: best working set ${s.weight}kg x ${s.reps} (seen in ${s.count} session${s.count > 1 ? 's' : ''})`
-    )
+    .map(([name, s]) => {
+      const noteSuffix = notesForExercise(activeNotes, name)
+        .map((n) => ` [note: ${n.note}]`)
+        .join('')
+      return `- ${name}: best working set ${s.weight}kg x ${s.reps} (seen in ${s.count} session${s.count > 1 ? 's' : ''})${noteSuffix}`
+    })
+
+  const generalNotesText = formatNotesForPrompt(generalNotes(activeNotes))
 
   // Latest body circumferences from Hevy body_measurements, if present.
   const latest = await prisma.measurement.findFirst({
@@ -81,7 +89,7 @@ async function buildHevyContext(userId: string): Promise<string> {
     ? `\nLatest logged body measurements (cm/kg): ${JSON.stringify(latest.bodyScoreData)}`
     : ''
 
-  return `The athlete's exercises from their last 30 Hevy workouts:\n${lines.join('\n')}${circumferences}`
+  return `The athlete's exercises from their last 30 Hevy workouts:\n${lines.join('\n')}${circumferences}${generalNotesText ? `\n\n${generalNotesText}` : ''}`
 }
 
 /** Compact daily nutrition + estimated expenditure (last 30 days) from Journal Santé. */

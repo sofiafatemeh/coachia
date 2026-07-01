@@ -350,9 +350,9 @@ Return ONLY valid JSON with this exact structure:
   async analyzeExerciseForm(
     images: ClaudeMorphoImage[],
     exercise: string,
-    options?: { model?: ClaudeModel }
+    options?: { model?: ClaudeModel; context?: string }
   ): Promise<ClaudeFormAnalysis> {
-    const systemPrompt = `You are an expert strength & conditioning coach analysing exercise execution.
+    let systemPrompt = `You are an expert strength & conditioning coach analysing exercise execution.
 You are given an ORDERED sequence of frames sampled from a short clip of a single set of "${exercise}".
 Read the frames as a movement over time (setup -> eccentric -> bottom -> concentric -> lockout).
 
@@ -369,6 +369,10 @@ Return ONLY valid JSON with this exact structure:
   "feedback": string,         // 2-4 sentence coaching summary
   "cues": [ { "issue": string, "correction": string } ]  // concrete fixes, most important first
 }`
+
+    if (options?.context) {
+      systemPrompt += `\n\nContexte connu sur cet athlète et cet exercice (à prendre en compte avant de juger l'exécution — ne pas signaler comme un défaut ce qui est un choix technique délibéré décrit ici) :\n${options.context}`
+    }
 
     const content: ClaudeContent[] = images.map((img) => ({
       type: 'image',

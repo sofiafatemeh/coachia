@@ -25,6 +25,7 @@ model User {
   videos        Video[]
   progressPhotos ProgressPhoto[]
   morphoAnalyses MorphoAnalysis[]
+  exerciseNotes  ExerciseNote[]
 }
 
 // ===== MEASUREMENTS (Body Composition) =====
@@ -222,4 +223,28 @@ model MorphoAnalysis {
 
   @@index([userId])
   @@index([weekOf])
+}
+
+// Freeform context notes about how exercises are actually executed (bilateral vs
+// unilateral, load convention, deliberate tempo/technique choices...) that Hevy's
+// raw sets/reps/weight can't capture. Fed into the morpho + video analysis prompts
+// so Claude doesn't misread the numbers or the movement.
+model ExerciseNote {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id])
+
+  // Exact Exercise.name to attach to, or null for a general note (applies to all).
+  exerciseName  String?
+  note          String
+
+  // Optional validity window (e.g. "since mid-May"); null = always active.
+  activeFrom    DateTime?
+  activeUntil   DateTime?
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([userId])
+  @@index([exerciseName])
 }
