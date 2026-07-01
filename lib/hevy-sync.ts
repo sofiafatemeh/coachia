@@ -106,7 +106,10 @@ export class HevySyncService {
   async syncBodyMeasurements() {
     const userId = await getOrCreateSystemUserId()
 
-    const measurements = await this.hevy.getAllBodyMeasurements()
+    const cutoff = Date.now() - 30 * DAY_MS
+    const measurements = (await this.hevy.getAllBodyMeasurements()).filter(
+      (bm) => new Date(bm.date).getTime() >= cutoff
+    )
 
     let synced = 0
     let errors = 0

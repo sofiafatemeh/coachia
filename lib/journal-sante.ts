@@ -19,6 +19,14 @@ export interface JournalMealsResponse {
   meals: JournalMeal[]
 }
 
+export interface JournalActivity {
+  id: string
+  loggedAt: string
+  activeCalories: number
+  source?: string
+  notes?: string | null
+}
+
 export interface JournalMeasurement {
   id: string
   measuredAt: string
@@ -94,9 +102,9 @@ export class JournalSanteClient {
     return data.measurements
   }
 
-  // ACTIVITIES
-  async getActivities() {
-    const data = await this.request<{ activities: any[] }>('/activity')
+  // ACTIVITIES (estimated energy expenditure)
+  async getActivities(): Promise<JournalActivity[]> {
+    const data = await this.request<{ activities: JournalActivity[] }>('/activity')
     return data.activities
   }
 

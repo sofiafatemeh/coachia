@@ -2,6 +2,16 @@ import prisma from '@/lib/prisma'
 import { getOrCreateSystemUserId } from '@/lib/system-user'
 import { getJournalClient, type JournalMeasurement } from '@/lib/journal-sante'
 
+export interface DailyEnergy {
+  date: string // YYYY-MM-DD
+  calories: number
+  protein: number
+  carbs: number
+  fat: number
+  fiber: number
+  activeCalories: number // estimated expenditure
+}
+
 function mealType(time: Date): string {
   const h = time.getHours()
   if (h < 11) return 'breakfast'
@@ -25,6 +35,10 @@ export class JournalSyncService {
     const list = (await this.journal.getMeasurements())
       .slice()
       .sort((a, b) => new Date(a.measuredAt).getTime() - new Date(b.measuredAt).getTime())
+
+    // Only write the last 30 days, but seed carry-forward from the full history
+    // so values from before the window still propagate into it.
+    const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000
 
     const carried: Record<'weight' | 'waist' | 'thigh' | 'neck' | 'biceps', number | null> = {
       weight: null, waist: null, thigh: null, neck: null, biceps: null,
@@ -59,6 +73,7 @@ export class JournalSyncService {
         notes: m.notes ?? null,
       }
       const createdAt = new Date(m.measuredAt)
+      if (createdAt.getTime() < cutoff) continue // older than 30 days: seeded carry-forward only
       const existingId = idByJournalId.get(m.id)
       if (existingId) {
         updates.push({ id: existingId, weight: carried.weight, bodyScoreData, createdAt })
@@ -128,15 +143,67 @@ export class JournalSyncService {
     }
   }
 
-  /** Sync everything from Journal Santé (measurements + meals). */
+  /**
+   * Sync from Journal Santé. Individual meals are intentionally NOT stored — what
+   * matters is weight/mensurations plus daily calorie/macro totals and estimated
+   * expenditure, which are aggregated on demand via dailyEnergySummary().
+   */
   async syncAll() {
     const measurements = await this.syncMeasurements()
-    const meals = await this.syncMeals()
     return {
       measurements,
-      meals,
-      message: `Journal Santé: ${measurements.synced} mesures, ${meals.synced} repas`,
+      message: `Journal Santé: ${measurements.synced} mesure(s) importée(s)`,
     }
+  }
+
+  /**
+   * Daily energy balance from Journal Santé: calories + macros (from meals) and
+   * estimated expenditure (active calories from activity). Computed on the fly,
+   * not stored. Returned most-recent-day first.
+   */
+  async dailyEnergySummary(days = 14): Promise<DailyEnergy[]> {
+    const [meals, activities] = await Promise.all([
+      this.journal.getMeals(),
+      this.journal.getActivities().catch(() => []),
+    ])
+
+    const cutoff = Date.now() - days * 24 * 60 * 60 * 1000
+    const byDay = new Map<string, DailyEnergy>()
+    const bucket = (iso: string): DailyEnergy => {
+      const date = new Date(iso).toISOString().slice(0, 10)
+      let b = byDay.get(date)
+      if (!b) {
+        b = { date, calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0, activeCalories: 0 }
+        byDay.set(date, b)
+      }
+      return b
+    }
+
+    for (const m of meals) {
+      if (new Date(m.eatenAt).getTime() < cutoff) continue
+      const b = bucket(m.eatenAt)
+      b.calories += m.calories
+      b.protein += m.protein
+      b.carbs += m.carbs
+      b.fat += m.fat
+      b.fiber += m.fiber ?? 0
+    }
+    for (const a of activities) {
+      if (new Date(a.loggedAt).getTime() < cutoff) continue
+      bucket(a.loggedAt).activeCalories += a.activeCalories
+    }
+
+    return [...byDay.values()]
+      .map((d) => ({
+        date: d.date,
+        calories: Math.round(d.calories),
+        protein: Math.round(d.protein),
+        carbs: Math.round(d.carbs),
+        fat: Math.round(d.fat),
+        fiber: Math.round(d.fiber),
+        activeCalories: Math.round(d.activeCalories),
+      }))
+      .sort((a, b) => b.date.localeCompare(a.date))
   }
 
   async dailySummary(date?: string) {

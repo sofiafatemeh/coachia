@@ -6,6 +6,7 @@ import { getOrCreateSystemUserId } from '@/lib/system-user'
 import { uploadProgressPhoto } from '@/lib/blob'
 import { sendAdviceEmail, renderAdviceEmail } from '@/lib/email'
 import { getJournalSyncService } from '@/lib/journal-sync'
+import { getHevySyncService } from '@/lib/hevy-sync'
 
 export interface WeeklyPhotoInput {
   angle: 'front' | 'side' | 'back'
@@ -30,11 +31,11 @@ function weekKey(d: Date): string {
  * morpho analysis can tailor advice to the exercises they really perform.
  */
 async function buildHevyContext(userId: string): Promise<string> {
-  const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
-
+  // The last 30 workouts (most recent first).
   const workouts = await prisma.workout.findMany({
-    where: { userId, completedAt: { gte: since } },
+    where: { userId },
     orderBy: { completedAt: 'desc' },
+    take: 30,
     include: { exercises: { include: { sets: true } } },
   })
 
@@ -75,7 +76,27 @@ async function buildHevyContext(userId: string): Promise<string> {
     ? `\nLatest logged body measurements (cm/kg): ${JSON.stringify(latest.bodyScoreData)}`
     : ''
 
-  return `The athlete's exercises from their Hevy log over the last 30 days:\n${lines.join('\n')}${circumferences}`
+  return `The athlete's exercises from their last 30 Hevy workouts:\n${lines.join('\n')}${circumferences}`
+}
+
+/** Compact daily nutrition + estimated expenditure (last 30 days) from Journal Santé. */
+async function buildNutritionContext(): Promise<string> {
+  if (!process.env.JOURNAL_SANTE_API_URL) return ''
+  try {
+    const days = await getJournalSyncService().dailyEnergySummary(30)
+    if (days.length === 0) return ''
+    const n = days.length
+    const avg = (sel: (d: (typeof days)[number]) => number) =>
+      Math.round(days.reduce((s, d) => s + sel(d), 0) / n)
+    const lines = days.map(
+      (d) =>
+        `  ${d.date}: ${d.calories} kcal ingérées (P${d.protein}/C${d.carbs}/L${d.fat}, fibres ${d.fiber}), dépense active ${d.activeCalories} kcal`
+    )
+    return `Nutrition & énergie sur les 30 derniers jours — moyennes/jour: ${avg((d) => d.calories)} kcal ingérées, P${avg((d) => d.protein)} C${avg((d) => d.carbs)} L${avg((d) => d.fat)}, dépense active ${avg((d) => d.activeCalories)} kcal. Utilise ce bilan énergétique pour les conseils de recomposition.\nDétail par jour:\n${lines.join('\n')}`
+  } catch (err) {
+    console.error('[morpho] nutrition context failed:', err)
+    return ''
+  }
 }
 
 async function compressToBase64(buffer: Buffer): Promise<string> {
@@ -106,15 +127,19 @@ export async function runWeeklyAnalysis(
   const weekOf = startOfIsoWeek()
   const wk = weekKey(weekOf)
 
-  // Pull the latest weight + mensurations (and nutrition) from Journal Santé first,
-  // so the analysis uses fresh values. Non-blocking: an outage must not fail the run.
-  if (process.env.JOURNAL_SANTE_API_URL) {
-    try {
-      await getJournalSyncService().syncAll()
-    } catch (err) {
-      console.error('[morpho] Journal Santé sync failed (non-blocking):', err)
-    }
-  }
+  // Auto-sync the last 30 days from Hevy + Journal Santé so the analysis always uses
+  // fresh data — no manual button needed. Best-effort: an outage never fails the run.
+  await Promise.allSettled([
+    getHevySyncService()
+      .syncWorkouts({ days: 30 })
+      .then(() => getHevySyncService().syncBodyMeasurements())
+      .catch((e) => console.error('[morpho] Hevy sync failed (non-blocking):', e)),
+    process.env.JOURNAL_SANTE_API_URL
+      ? getJournalSyncService()
+          .syncAll()
+          .catch((e) => console.error('[morpho] Journal Santé sync failed (non-blocking):', e))
+      : Promise.resolve(),
+  ])
 
   // 1. Store photos (Blob) + ProgressPhoto rows, and prepare images for Claude.
   const images: ClaudeMorphoImage[] = []
@@ -147,10 +172,17 @@ export async function runWeeklyAnalysis(
     where: { userId, weekOf: { lt: weekOf } },
     orderBy: { weekOf: 'desc' },
   })
-  const hevyContext = await buildHevyContext(userId)
-  const context = previous?.summary
-    ? `${hevyContext}\n\nPrevious week's summary (for progression): ${previous.summary}`
-    : hevyContext
+  const [hevyContext, nutritionContext] = await Promise.all([
+    buildHevyContext(userId),
+    buildNutritionContext(),
+  ])
+  const context = [
+    hevyContext,
+    nutritionContext,
+    previous?.summary ? `Résumé de la semaine précédente (pour la progression) : ${previous.summary}` : '',
+  ]
+    .filter(Boolean)
+    .join('\n\n')
 
   // 3. Morpho analysis.
   const claude = getClaudeClient()
