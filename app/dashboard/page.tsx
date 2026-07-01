@@ -20,21 +20,20 @@ interface Workout {
   completedAt: string
 }
 
-interface Meal {
-  id: string
-  name: string
-  type: string
+interface DailyEnergy {
+  date: string
   calories: number
   protein: number
   carbs: number
-  fats: number
-  time: string
+  fat: number
+  fiber: number
+  activeCalories: number
 }
 
 export default function Dashboard() {
   const [measurements, setMeasurements] = useState<Measurement[]>([])
   const [workouts, setWorkouts] = useState<Workout[]>([])
-  const [meals, setMeals] = useState<Meal[]>([])
+  const [energy, setEnergy] = useState<DailyEnergy[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -43,7 +42,6 @@ export default function Dashboard() {
 
   const fetchData = async () => {
     try {
-      // Fetch users (hardcoded for demo)
       const usersRes = await fetch('/api/users')
       const usersData = await usersRes.json()
       const userId = usersData[0]?.id
@@ -54,22 +52,22 @@ export default function Dashboard() {
         return
       }
 
-      // Fetch measurements
       const measurementsRes = await fetch(`/api/measurements?userId=${userId}`)
       const measurementsData = await measurementsRes.json()
       setMeasurements(Array.isArray(measurementsData) ? measurementsData : [])
 
-      // Fetch workouts
       const workoutsRes = await fetch(`/api/workouts?userId=${userId}`)
       const workoutsData = await workoutsRes.json()
       setWorkouts(Array.isArray(workoutsData) ? workoutsData : [])
 
-      // Fetch meals (last 7 days)
-      const sevenDaysAgo = new Date()
-      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
-      const mealsRes = await fetch(`/api/nutrition/meals?userId=${userId}&date=${sevenDaysAgo.toISOString().split('T')[0]}`)
-      const mealsData = await mealsRes.json()
-      setMeals(Array.isArray(mealsData) ? mealsData : [])
+      // Daily calories + macros + estimated expenditure from Journal Santé.
+      try {
+        const energyRes = await fetch('/api/journal/energy?days=30')
+        const energyData = await energyRes.json()
+        setEnergy(Array.isArray(energyData.days) ? energyData.days : [])
+      } catch {
+        setEnergy([])
+      }
     } catch (error) {
       console.error('Error fetching data:', error)
     } finally {
@@ -86,8 +84,12 @@ export default function Dashboard() {
   }
 
   const latestMeasurement = measurements[0]
-  const totalCalories = meals.reduce((sum, meal) => sum + meal.calories, 0)
-  const totalProtein = meals.reduce((sum, meal) => sum + meal.protein, 0)
+  const today = energy[0]
+  const window = energy.slice(0, 7)
+  const avg = (sel: (d: DailyEnergy) => number) =>
+    window.length ? Math.round(window.reduce((s, d) => s + sel(d), 0) / window.length) : 0
+  const fmtDate = (iso: string) =>
+    new Date(iso).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })
 
   return (
     <div className="min-h-screen bg-zinc-50 font-sans">
@@ -158,12 +160,6 @@ export default function Dashboard() {
                     <span className="font-medium">{workouts[0].duration} min</span>
                   </div>
                 )}
-                {workouts[0].calories && (
-                  <div className="flex justify-between">
-                    <span className="text-zinc-600">Calories:</span>
-                    <span className="font-medium">{workouts[0].calories} kcal</span>
-                  </div>
-                )}
                 <div className="text-xs text-zinc-500 mt-2">
                   {new Date(workouts[0].completedAt).toLocaleDateString('fr-FR')}
                 </div>
@@ -174,28 +170,31 @@ export default function Dashboard() {
           </div>
 
           <div className="bg-white p-6 rounded-lg border border-zinc-200">
-            <h3 className="text-lg font-semibold text-zinc-900 mb-2">Nutrition (7 jours)</h3>
-            {meals.length > 0 ? (
+            <h3 className="text-lg font-semibold text-zinc-900 mb-2">Énergie du jour</h3>
+            {today ? (
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-zinc-600">Total calories:</span>
-                  <span className="font-medium">{totalCalories} kcal</span>
+                  <span className="text-zinc-600">Calories ingérées:</span>
+                  <span className="font-medium">{today.calories} kcal</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-zinc-600">Total protéines:</span>
-                  <span className="font-medium">{totalProtein.toFixed(1)} g</span>
+                  <span className="text-zinc-600">Dépense active:</span>
+                  <span className="font-medium">{today.activeCalories} kcal</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-zinc-600">Moyenne/jour:</span>
-                  <span className="font-medium">{(totalCalories / 7).toFixed(0)} kcal</span>
+                  <span className="text-zinc-600">Bilan net:</span>
+                  <span className="font-medium">{today.calories - today.activeCalories} kcal</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-zinc-600">Repas:</span>
-                  <span className="font-medium">{meals.length}</span>
+                  <span className="text-zinc-600">Macros (P/G/L):</span>
+                  <span className="font-medium">{today.protein} / {today.carbs} / {today.fat} g</span>
+                </div>
+                <div className="text-xs text-zinc-500 mt-2">
+                  {fmtDate(today.date)} · moy. 7j: {avg((d) => d.calories)} kcal ingérées, {avg((d) => d.activeCalories)} kcal dépensées
                 </div>
               </div>
             ) : (
-              <div className="text-zinc-500 text-sm">Aucun repas</div>
+              <div className="text-zinc-500 text-sm">Aucune donnée nutrition</div>
             )}
           </div>
         </div>
@@ -216,36 +215,48 @@ export default function Dashboard() {
                 </div>
                 <div className="text-right text-sm text-zinc-600">
                   {workout.duration && <div>{workout.duration} min</div>}
-                  {workout.calories && <div>{workout.calories} kcal</div>}
                 </div>
               </div>
             ))}
+            {workouts.length === 0 && <div className="p-6 text-sm text-zinc-500">Aucune séance</div>}
           </div>
         </div>
 
-        {/* Recent Meals */}
+        {/* Daily energy (30 days) */}
         <div className="bg-white rounded-lg border border-zinc-200">
           <h3 className="text-lg font-semibold text-zinc-900 p-6 border-b border-zinc-200">
-            Repas récents
+            Bilan énergétique (30 jours)
           </h3>
-          <div className="divide-y divide-zinc-200">
-            {meals.slice(0, 10).map((meal) => (
-              <div key={meal.id} className="p-6 flex justify-between items-center">
-                <div>
-                  <div className="font-medium text-zinc-900">{meal.name}</div>
-                  <div className="text-sm text-zinc-500">
-                    {meal.type} · {new Date(meal.time).toLocaleDateString('fr-FR')}
-                  </div>
-                </div>
-                <div className="text-right text-sm text-zinc-600">
-                  <div>{meal.calories} kcal</div>
-                  <div className="text-xs text-zinc-500">
-                    P: {meal.protein}g · C: {meal.carbs}g · F: {meal.fats}g
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
+          {energy.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="text-zinc-500 border-b border-zinc-200">
+                  <tr>
+                    <th className="text-left font-medium px-6 py-3">Jour</th>
+                    <th className="text-right font-medium px-6 py-3">Ingérées</th>
+                    <th className="text-right font-medium px-6 py-3">Dépense</th>
+                    <th className="text-right font-medium px-6 py-3">Net</th>
+                    <th className="text-right font-medium px-6 py-3">P / G / L</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-zinc-100">
+                  {energy.map((d) => (
+                    <tr key={d.date}>
+                      <td className="px-6 py-3 text-zinc-900">{fmtDate(d.date)}</td>
+                      <td className="px-6 py-3 text-right">{d.calories} kcal</td>
+                      <td className="px-6 py-3 text-right text-zinc-600">{d.activeCalories} kcal</td>
+                      <td className="px-6 py-3 text-right font-medium">{d.calories - d.activeCalories}</td>
+                      <td className="px-6 py-3 text-right text-zinc-600">{d.protein} / {d.carbs} / {d.fat} g</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="p-6 text-sm text-zinc-500">
+              Aucune donnée nutrition. Vérifie que Journal Santé est bien connecté.
+            </div>
+          )}
         </div>
       </main>
     </div>

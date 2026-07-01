@@ -18,5 +18,6 @@ The owner runs a separate **Journal Santé** app (private repo `github.com/sofia
 
 **Coach-side sync (`lib/journal-sync.ts`, `POST /api/journal/sync`, home "Journal Santé" button):**
 - Measurements → coach `Measurement` rows (real weigh-ins, `claudeData` null). **Per-field carry-forward**: a new entry missing a field inherits the last known value. Idempotent by Journal Santé id stored in `bodyScoreId`; circumferences kept in `bodyScoreData` (used by the morpho analysis via `buildHevyContext`).
-- Meals → coach `Meal` rows, idempotent by `journalId`; `type` derived from the hour.
-- The weekly morpho analysis (`runWeeklyAnalysis`) calls `syncAll()` first (non-blocking) so weight/mensurations are always fresh.
+- Nutrition: individual meals are NOT stored (owner doesn't care about meals). Instead `dailyEnergySummary(days)` aggregates daily calories + macros + estimated expenditure (active calories from `/api/activity`) on the fly; exposed via `GET /api/journal/energy`. (`syncMeals` still exists but is unused by `syncAll`.)
+- **Scope = last 30 days** everywhere (Hevy workouts + body measurements, Journal Santé measurement writes with carry-forward seeded from full history, energy summary).
+- **Sync is automatic, no button**: the weekly analysis (`runWeeklyAnalysis`) auto-syncs Hevy + Journal Santé (best-effort) at the start, then feeds the last 30 workouts + 30 days of nutrition/energy into the morpho prompt. The home "Journal Santé" button remains as an optional manual trigger.
