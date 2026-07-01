@@ -56,6 +56,13 @@ export interface ClaudeMorphoAnalysis {
   overallScore?: number
 }
 
+export interface ClaudeFormAnalysis {
+  formScore: number // 0-100
+  reps?: number
+  feedback: string
+  cues: { issue: string; correction: string }[]
+}
+
 export interface ClaudeProgressAnalysis {
   scoreDiff: number
   weightDiff?: number
@@ -327,6 +334,77 @@ Return ONLY valid JSON with this exact structure:
       progression: result.progression ?? undefined,
       summary: result.summary ?? '',
       overallScore: typeof result.overallScore === 'number' ? result.overallScore : undefined,
+    }
+  }
+
+  /**
+   * Analyse exercise execution/form from an ordered sequence of keyframes taken
+   * from a short (~30s) training clip of a single set.
+   */
+  async analyzeExerciseForm(
+    images: ClaudeMorphoImage[],
+    exercise: string,
+    options?: { model?: ClaudeModel }
+  ): Promise<ClaudeFormAnalysis> {
+    const systemPrompt = `You are an expert strength & conditioning coach analysing exercise execution.
+You are given an ORDERED sequence of frames sampled from a short clip of a single set of "${exercise}".
+Read the frames as a movement over time (setup -> eccentric -> bottom -> concentric -> lockout).
+
+Assess execution quality: joint alignment, range of motion, depth, bar/limb path, tempo, symmetry,
+and common failure modes for this specific exercise. Estimate the number of reps if visible.
+
+Return ONLY valid JSON with this exact structure:
+{
+  "formScore": number,        // 0-100 overall execution quality
+  "reps": number,             // estimated reps seen (0 if unclear)
+  "feedback": string,         // 2-4 sentence coaching summary
+  "cues": [ { "issue": string, "correction": string } ]  // concrete fixes, most important first
+}`
+
+    const content: ClaudeContent[] = images.map((img) => ({
+      type: 'image',
+      source: { type: 'base64', media_type: img.mediaType, data: img.base64 },
+    }))
+    content.push({
+      type: 'text',
+      text: `Frames are in chronological order (${images.length} frames) for the exercise "${exercise}".`,
+    })
+
+    const model = options?.model || DEFAULT_MODEL
+
+    const response = await fetch(this.baseUrl, {
+      method: 'POST',
+      headers: {
+        'x-api-key': this.apiKey,
+        'anthropic-version': '2023-06-01',
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        model,
+        max_tokens: 2048,
+        system: systemPrompt,
+        messages: [{ role: 'user', content }],
+      }),
+    })
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}))
+      throw new Error(`Claude API error: ${response.status} - ${error.error?.message || response.statusText}`)
+    }
+
+    const data = await response.json()
+    const text = data.content?.[0]?.text || ''
+    const jsonMatch = text.match(/\{[\s\S]*\}/)
+    if (!jsonMatch) {
+      throw new Error('No JSON found in Claude form response')
+    }
+
+    const result = JSON.parse(jsonMatch[0])
+    return {
+      formScore: typeof result.formScore === 'number' ? result.formScore : 0,
+      reps: typeof result.reps === 'number' ? result.reps : undefined,
+      feedback: result.feedback ?? '',
+      cues: Array.isArray(result.cues) ? result.cues : [],
     }
   }
 

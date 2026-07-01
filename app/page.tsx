@@ -140,6 +140,15 @@ export default function Home() {
             </Link>
 
             <Link
+              href="/video"
+              className="bg-white p-6 rounded-lg border border-zinc-200 hover:border-zinc-400 transition cursor-pointer"
+            >
+              <div className="text-3xl mb-3">🎥</div>
+              <h3 className="text-lg font-semibold text-zinc-900 mb-2">Analyse vidéo</h3>
+              <p className="text-sm text-zinc-600">Exécution d&apos;un exercice (~30 s)</p>
+            </Link>
+
+            <Link
               href="/measurements"
               className="bg-white p-6 rounded-lg border border-zinc-200 hover:border-zinc-400 transition cursor-pointer"
             >

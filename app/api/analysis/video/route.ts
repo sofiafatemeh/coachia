@@ -1,39 +1,73 @@
 import { NextResponse } from 'next/server'
+import sharp from 'sharp'
 import prisma from '@/lib/prisma'
+import { getClaudeClient, type ClaudeMorphoImage } from '@/lib/claude'
 import { getOrCreateSystemUserId } from '@/lib/system-user'
+import { uploadProgressPhoto } from '@/lib/blob'
+
+export const runtime = 'nodejs'
+export const maxDuration = 120
+
+async function compressToBase64(buffer: Buffer): Promise<string> {
+  const out = await sharp(buffer)
+    .resize(720, null, { fit: 'inside', withoutEnlargement: true })
+    .jpeg({ quality: 70 })
+    .toBuffer()
+  return out.toString('base64')
+}
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json()
+    const formData = await request.formData()
+    const exercise = (formData.get('exercise') as string | null) || 'exercice'
+    const duration = parseInt((formData.get('duration') as string | null) || '0') || 0
 
-    const { videoUrl, exercise } = body
-
-    if (!videoUrl) {
-      return NextResponse.json(
-        { error: 'videoUrl is required' },
-        { status: 400 }
-      )
+    // Ordered keyframes extracted client-side from the clip.
+    const frameFiles = formData.getAll('frames').filter((f): f is File => f instanceof File)
+    if (frameFiles.length === 0) {
+      return NextResponse.json({ error: 'Aucune image (frames) reçue' }, { status: 400 })
     }
 
-    // MediaPipe runs in browser - server receives pre-analyzed data
+    const images: ClaudeMorphoImage[] = []
+    for (const f of frameFiles) {
+      const base64 = await compressToBase64(Buffer.from(await f.arrayBuffer()))
+      images.push({ angle: 'frame', base64, mediaType: 'image/jpeg' })
+    }
+
+    // Analyse execution/form.
+    const claude = getClaudeClient()
+    const analysis = await claude.analyzeExerciseForm(images, exercise)
+
+    // Store a representative thumbnail (first frame) so the Video row has a URL.
     const userId = await getOrCreateSystemUserId()
+    let url = ''
+    try {
+      url = await uploadProgressPhoto(Buffer.from(images[0].base64, 'base64'), {
+        angle: 'video',
+        weekKey: new Date().toISOString().slice(0, 10),
+      })
+    } catch {
+      url = 'data:image/jpeg;base64,' + images[0].base64 // fallback if Blob not configured
+    }
+
     const video = await prisma.video.create({
       data: {
         userId,
-        url: videoUrl,
-        exercise: exercise || 'squat',
-        duration: 0 // TODO: Calculate from video
-      }
+        exercise,
+        url,
+        duration,
+        repCount: analysis.reps ?? null,
+        formScore: analysis.formScore,
+        feedback: analysis.feedback,
+        keypoints: analysis.cues as object,
+      },
     })
 
-    return NextResponse.json({
-      video,
-      message: 'Video data stored successfully. MediaPipe analysis should be done client-side.'
-    }, { status: 201 })
+    return NextResponse.json({ video, analysis }, { status: 201 })
   } catch (error) {
-    console.error('Error storing video data:', error)
+    console.error('[API] Video form analysis error:', error)
     return NextResponse.json(
-      { error: 'Failed to store video data' },
+      { error: 'Analyse vidéo échouée', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     )
   }
@@ -42,37 +76,17 @@ export async function POST(request: Request) {
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
-    const videoId = searchParams.get('videoId')
     const exercise = searchParams.get('exercise')
 
-    if (!videoId && !exercise) {
-      return NextResponse.json(
-        { error: 'videoId or exercise is required' },
-        { status: 400 }
-      )
-    }
-
     const videos = await prisma.video.findMany({
-      where: {
-        OR: [
-          videoId ? { id: videoId } : {},
-          exercise ? { exercise } : {}
-        ].filter(Boolean)
-      },
+      where: exercise ? { exercise } : undefined,
       orderBy: { createdAt: 'desc' },
-      take: 10
+      take: 10,
     })
 
-    return NextResponse.json({
-      videos,
-      total: videos.length,
-      message: `Found ${videos.length} video analyses`
-    })
+    return NextResponse.json({ videos, total: videos.length })
   } catch (error) {
     console.error('Error fetching video analyses:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch video analyses' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Failed to fetch video analyses' }, { status: 500 })
   }
 }
