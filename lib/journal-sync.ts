@@ -30,102 +30,101 @@ export class JournalSyncService {
       weight: null, waist: null, thigh: null, neck: null, biceps: null,
     }
 
-    let synced = 0
-    let errors = 0
+    // One read of existing journal-sourced rows instead of a query per item.
+    const existing = await prisma.measurement.findMany({
+      where: { userId, bodyScoreId: { not: null } },
+      select: { id: true, bodyScoreId: true },
+    })
+    const idByJournalId = new Map(existing.map((e) => [e.bodyScoreId as string, e.id]))
+
+    const creates: import('@prisma/client').Prisma.MeasurementCreateManyInput[] = []
+    const updates: { id: string; weight: number | null; bodyScoreData: object; createdAt: Date }[] = []
 
     for (const m of list) {
-      try {
-        // Carry the last known value forward for any field the new entry omits.
-        carried.weight = m.weightKg ?? carried.weight
-        carried.waist = m.waistCm ?? carried.waist
-        carried.thigh = m.thighCm ?? carried.thigh
-        carried.neck = m.neckCm ?? carried.neck
-        carried.biceps = m.bicepsCm ?? carried.biceps
+      // Carry the last known value forward for any field the new entry omits.
+      carried.weight = m.weightKg ?? carried.weight
+      carried.waist = m.waistCm ?? carried.waist
+      carried.thigh = m.thighCm ?? carried.thigh
+      carried.neck = m.neckCm ?? carried.neck
+      carried.biceps = m.bicepsCm ?? carried.biceps
 
-        const bodyScoreData = {
-          source: 'journal-sante',
-          journalId: m.id,
-          measuredAt: m.measuredAt,
-          waistCm: carried.waist,
-          thighCm: carried.thigh,
-          neckCm: carried.neck,
-          bicepsCm: carried.biceps,
-          notes: m.notes ?? null,
-        }
-
-        const existing = await prisma.measurement.findFirst({ where: { userId, bodyScoreId: m.id } })
-        if (existing) {
-          await prisma.measurement.update({
-            where: { id: existing.id },
-            data: { weight: carried.weight, bodyScoreData, createdAt: new Date(m.measuredAt) },
-          })
-        } else {
-          await prisma.measurement.create({
-            data: {
-              userId,
-              weight: carried.weight,
-              bodyScoreId: m.id, // stable dedup key = Journal Santé measurement id
-              bodyScoreData,
-              createdAt: new Date(m.measuredAt),
-            },
-          })
-        }
-        synced++
-      } catch (error) {
-        console.error(`Error syncing journal measurement ${m.id}:`, error)
-        errors++
+      const bodyScoreData = {
+        source: 'journal-sante',
+        journalId: m.id,
+        measuredAt: m.measuredAt,
+        waistCm: carried.waist,
+        thighCm: carried.thigh,
+        neckCm: carried.neck,
+        bicepsCm: carried.biceps,
+        notes: m.notes ?? null,
       }
+      const createdAt = new Date(m.measuredAt)
+      const existingId = idByJournalId.get(m.id)
+      if (existingId) {
+        updates.push({ id: existingId, weight: carried.weight, bodyScoreData, createdAt })
+      } else {
+        creates.push({ userId, weight: carried.weight, bodyScoreId: m.id, bodyScoreData, createdAt })
+      }
+    }
+
+    if (creates.length) await prisma.measurement.createMany({ data: creates })
+    for (const u of updates) {
+      await prisma.measurement.update({
+        where: { id: u.id },
+        data: { weight: u.weight, bodyScoreData: u.bodyScoreData, createdAt: u.createdAt },
+      })
     }
 
     return {
       total: list.length,
-      synced,
-      errors,
-      message: `Synced ${synced}/${list.length} measurements from Journal Santé`,
+      synced: creates.length + updates.length,
+      errors: 0,
+      message: `Synced ${creates.length + updates.length}/${list.length} measurements from Journal Santé`,
     }
   }
 
   /** Import meals (nutrition) from Journal Santé. Idempotent by journal meal id. */
-  async syncMeals(_options?: { days?: number }) {
+  async syncMeals(options?: { days?: number }) {
     const userId = await getOrCreateSystemUserId()
 
-    const list = await this.journal.getMeals()
+    const days = options?.days ?? 90
+    const cutoff = Date.now() - days * 24 * 60 * 60 * 1000
 
-    let synced = 0
-    let errors = 0
+    // Only recent meals, and one read of existing ids instead of a query per meal.
+    const list = (await this.journal.getMeals()).filter(
+      (m) => new Date(m.eatenAt).getTime() >= cutoff
+    )
+    const existing = await prisma.meal.findMany({
+      where: { userId, journalId: { not: null } },
+      select: { journalId: true },
+    })
+    const seen = new Set(existing.map((e) => e.journalId))
 
-    for (const meal of list) {
-      try {
-        const existing = await prisma.meal.findFirst({ where: { userId, journalId: meal.id } })
-        if (existing) continue
+    const creates = list
+      .filter((m) => !seen.has(m.id))
+      .map((m) => {
+        const time = new Date(m.eatenAt)
+        return {
+          userId,
+          journalId: m.id,
+          name: m.label,
+          type: mealType(time),
+          time,
+          calories: Math.round(m.calories),
+          protein: m.protein,
+          carbs: m.carbs,
+          fats: m.fat,
+          fiber: m.fiber ?? null,
+        }
+      })
 
-        const time = new Date(meal.eatenAt)
-        await prisma.meal.create({
-          data: {
-            userId,
-            journalId: meal.id,
-            name: meal.label,
-            type: mealType(time),
-            time,
-            calories: Math.round(meal.calories),
-            protein: meal.protein,
-            carbs: meal.carbs,
-            fats: meal.fat,
-            fiber: meal.fiber ?? null,
-          },
-        })
-        synced++
-      } catch (error) {
-        console.error(`Error syncing journal meal ${meal.id}:`, error)
-        errors++
-      }
-    }
+    if (creates.length) await prisma.meal.createMany({ data: creates })
 
     return {
       total: list.length,
-      synced,
-      errors,
-      message: `Synced ${synced}/${list.length} meals from Journal Santé`,
+      synced: creates.length,
+      errors: 0,
+      message: `Synced ${creates.length}/${list.length} meals from Journal Santé`,
     }
   }
 
