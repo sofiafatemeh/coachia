@@ -48,7 +48,11 @@ Recent decisions affecting current work:
 
 ### Pending Todos
 
-None yet.
+- Phase 2 source material: 4 Delavier PDFs confirmed accessible via Google Drive (owner: siavach.aghababaei@gmail.com) — file IDs below, ready for the ingestion script when Phase 2 is planned. No Pierre Lesueur book received yet — confirm with user whether one is still coming before finalizing Phase 2 scope.
+  - `1N2kdkVXGMyAoOUmHgzCSfZh6D3qiaWCE` — La Méthode Delavier de Musculation Vol 1
+  - `1LBWWTGxw5gzpdPJvj_zFz0PshXNg0JT7` — La Méthode Delavier de Musculation Vol 2 (Delavier & Gundill)
+  - `1NDvAb6M5AXYpFh_CUNcp1mrmjYPfT9h2` — La Méthode Delavier de Musculation Vol 3 (2018)
+  - `1NYeMl9XVMR-pEYvFS8_-vxZSNtGv-_xC` — Guide des mouvements de musculation
 
 ### Blockers/Concerns
 
