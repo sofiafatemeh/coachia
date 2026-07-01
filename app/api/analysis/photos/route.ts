@@ -38,7 +38,8 @@ export async function POST(request: Request) {
     const body = await request.json()
     console.log('[API] Request body type:', body.imageUrl ? 'URL' : body.imageBase64 ? 'Base64' : 'None')
 
-    let { imageUrl, imageBase64, height, gender, age, model } = body
+    const { imageUrl, height, gender, age } = body
+    let { imageBase64 } = body
 
     if (!imageUrl && !imageBase64) {
       console.error('[API] imageUrl or imageBase64 is required')

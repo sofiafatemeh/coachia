@@ -92,6 +92,13 @@ ANTHROPIC_API_KEY=sk-ant-xxx
 # Hevy API
 HEVY_API_KEY=***
 
+# Authentification (mono-utilisateur)
+# APP_PASSWORD : le mot de passe d'accès à l'app.
+# AUTH_SECRET  : clé de signature du cookie de session.
+#   Générer une valeur aléatoire : openssl rand -hex 32
+APP_PASSWORD=choisis-un-mot-de-passe-fort
+AUTH_SECRET=remplace-par-openssl-rand-hex-32
+
 # Journal Santé API
 JOURNAL_SANTE_API_URL=http://localhost:3000/api
 
@@ -305,8 +312,8 @@ Ajouter dans https://vercel.com/salsalocastrasbourg/coach/settings/environment-v
 - `ANTHROPIC_API_KEY`
 - `HEVY_API_KEY`
 - `JOURNAL_SANTE_API_URL`
-- `NEXTAUTH_URL`
-- `NEXTAUTH_SECRET`
+- `APP_PASSWORD` — mot de passe d'accès (authentification mono-utilisateur)
+- `AUTH_SECRET` — clé de signature du cookie de session (`openssl rand -hex 32`)
 
 ---
 

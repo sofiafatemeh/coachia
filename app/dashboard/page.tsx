@@ -57,19 +57,19 @@ export default function Dashboard() {
       // Fetch measurements
       const measurementsRes = await fetch(`/api/measurements?userId=${userId}`)
       const measurementsData = await measurementsRes.json()
-      setMeasurements(measurementsData)
+      setMeasurements(Array.isArray(measurementsData) ? measurementsData : [])
 
       // Fetch workouts
       const workoutsRes = await fetch(`/api/workouts?userId=${userId}`)
       const workoutsData = await workoutsRes.json()
-      setWorkouts(workoutsData)
+      setWorkouts(Array.isArray(workoutsData) ? workoutsData : [])
 
       // Fetch meals (last 7 days)
       const sevenDaysAgo = new Date()
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
       const mealsRes = await fetch(`/api/nutrition/meals?userId=${userId}&date=${sevenDaysAgo.toISOString().split('T')[0]}`)
       const mealsData = await mealsRes.json()
-      setMeals(mealsData)
+      setMeals(Array.isArray(mealsData) ? mealsData : [])
     } catch (error) {
       console.error('Error fetching data:', error)
     } finally {

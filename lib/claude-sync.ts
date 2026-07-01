@@ -1,25 +1,35 @@
 import prisma from '@/lib/prisma'
-import { getClaudeClient, type ClaudeVisionAnalysis } from '@/lib/claude'
+import { getClaudeClient } from '@/lib/claude'
+import { getOrCreateSystemUserId } from '@/lib/system-user'
+
+// Flat shape consumed by the Photos page (result panel + history list).
+function toAnalysisResult(measurement: {
+  id: string
+  weight: number | null
+  bodyFat: number | null
+  muscleMass: number | null
+  bmi: number | null
+  claudeData: unknown
+  createdAt: Date
+}) {
+  const data = (measurement.claudeData ?? {}) as any
+  return {
+    id: measurement.id,
+    score: data.overallScore ?? null,
+    confidence: data.confidence ?? null,
+    weight: measurement.weight,
+    bodyFat: measurement.bodyFat,
+    muscleMass: measurement.muscleMass,
+    bmi: measurement.bmi,
+    strengths: data.strengths ?? [],
+    weaknesses: data.weaknesses ?? [],
+    recommendations: data.recommendations ?? [],
+    createdAt: measurement.createdAt,
+  }
+}
 
 export class ClaudeSyncService {
   private claude = getClaudeClient()
-
-  private async getOrCreateSystemUser() {
-    let user = await prisma.user.findUnique({
-      where: { email: 'system@example.com' },
-    })
-
-    if (!user) {
-      user = await prisma.user.create({
-        data: {
-          email: 'system@example.com',
-          name: 'System User',
-        },
-      })
-    }
-
-    return user.id
-  }
 
   async analyzePhoto(photoUrl: string, options?: {
     height?: number
@@ -30,7 +40,7 @@ export class ClaudeSyncService {
     const analysis = await this.claude.analyzePhoto(photoUrl, options)
 
     // Get system user ID
-    const userId = await this.getOrCreateSystemUser()
+    const userId = await getOrCreateSystemUserId()
 
     // Create measurement in database
     const measurement = await prisma.measurement.create({
@@ -62,9 +72,9 @@ export class ClaudeSyncService {
     // TODO: Also create progress photo (requires schema update)
 
     return {
-      measurement,
+      ...toAnalysisResult(measurement),
       analysis,
-      message: `Claude Vision analysis synced successfully`
+      message: `Claude Vision analysis synced successfully`,
     }
   }
 
@@ -107,7 +117,10 @@ export class ClaudeSyncService {
       orderBy: { createdAt: 'desc' }
     })
 
+    const analyses = measurements.map(toAnalysisResult)
+
     return {
+      analyses,
       measurements,
       total: measurements.length,
       message: `Found ${measurements.length} Claude analyses`
@@ -149,22 +162,6 @@ export class ClaudeSyncService {
     }
   }
 
-  private detectAngle(url: string): string {
-    // Simple heuristic to detect angle from URL
-    const lower = url.toLowerCase()
-    
-    if (lower.includes('front') || lower.includes('face')) {
-      return 'front'
-    }
-    if (lower.includes('side') || lower.includes('lateral') || lower.includes('profile')) {
-      return 'side'
-    }
-    if (lower.includes('back') || lower.includes('rear')) {
-      return 'back'
-    }
-    
-    return 'front' // Default
-  }
 }
 
 // Singleton instance

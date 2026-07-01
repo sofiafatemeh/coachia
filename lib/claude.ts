@@ -3,6 +3,11 @@
 
 export type ClaudeModel = 'claude-sonnet-4-6' | 'claude-opus-4-8' | 'claude-haiku-4-5-20251001'
 
+// Default model used when the caller doesn't specify one.
+// Must be a valid Anthropic model id. 'claude-sonnet-4-6' is a current vision-capable
+// model; the earlier 'claude-sonnet-5' does not exist and 404s on every Vision call.
+const DEFAULT_MODEL: ClaudeModel = 'claude-sonnet-4-6'
+
 export interface ClaudeMessage {
   role: 'user' | 'assistant'
   content: ClaudeContent[]
@@ -134,7 +139,7 @@ Return ONLY valid JSON with this exact structure:
         systemPrompt += `\n\nThe person is approximately ${options.age} years old.`
       }
 
-      const model = options?.model || 'claude-sonnet-4-6'
+      const model = options?.model || DEFAULT_MODEL
 
       console.log('[Claude] Calling Claude API with model:', model)
 
@@ -283,7 +288,7 @@ Return ONLY valid JSON:
         systemPrompt += `\n\nThese photos were taken ${options.days} days apart.`
       }
 
-      const model = options?.model || 'claude-sonnet-4-6'
+      const model = options?.model || DEFAULT_MODEL
 
       console.log('[Claude] Calling Claude API for progress...')
 

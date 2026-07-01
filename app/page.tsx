@@ -2,12 +2,20 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 
 export default function Home() {
   const [users, setUsers] = useState<any[]>([])
   const [selectedUser, setSelectedUser] = useState<string | null>(null)
   const [showCreateUser, setShowCreateUser] = useState(false)
   const [loading, setLoading] = useState(true)
+  const router = useRouter()
+
+  const handleLogout = async () => {
+    await fetch('/api/auth/logout', { method: 'POST' })
+    router.replace('/login')
+    router.refresh()
+  }
 
   useEffect(() => {
     fetchUsers()
@@ -59,17 +67,25 @@ export default function Home() {
       <header className="bg-white border-b border-zinc-200">
         <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
           <h1 className="text-2xl font-bold text-zinc-900">🏋️ Coach AI</h1>
-          {users.length > 0 && (
-            <select
-              value={selectedUser || ''}
-              onChange={(e) => setSelectedUser(e.target.value)}
-              className="px-4 py-2 border border-zinc-300 rounded-lg"
+          <div className="flex items-center gap-3">
+            {users.length > 0 && (
+              <select
+                value={selectedUser || ''}
+                onChange={(e) => setSelectedUser(e.target.value)}
+                className="px-4 py-2 border border-zinc-300 rounded-lg"
+              >
+                {users.map((user) => (
+                  <option key={user.id} value={user.id}>{user.name || user.email}</option>
+                ))}
+              </select>
+            )}
+            <button
+              onClick={handleLogout}
+              className="text-sm text-zinc-600 hover:text-zinc-900 underline"
             >
-              {users.map((user) => (
-                <option key={user.id} value={user.id}>{user.name || user.email}</option>
-              ))}
-            </select>
-          )}
+              Déconnexion
+            </button>
+          </div>
         </div>
       </header>
 
