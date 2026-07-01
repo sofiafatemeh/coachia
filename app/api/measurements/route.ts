@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 
 // GET measurements for user
@@ -11,8 +12,10 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'userId required' }, { status: 400 })
     }
 
+    // Real weigh-ins only. Rows with claudeData are AI photo estimates and must not
+    // appear here (they'd otherwise override the real weight on the Dashboard/Mesures).
     const measurements = await prisma.measurement.findMany({
-      where: { userId },
+      where: { userId, claudeData: { equals: Prisma.DbNull } },
       orderBy: { createdAt: 'desc' }
     })
 
