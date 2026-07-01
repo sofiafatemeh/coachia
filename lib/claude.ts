@@ -131,6 +131,9 @@ export class ClaudeClient {
 6. Weaknesses (3-5 key points)
 7. Recommendations (3-5 specific, actionable suggestions)
 
+IMPORTANT: Write the strengths, weaknesses and recommendations text in FRENCH. Keep the JSON keys
+in English exactly as shown below.
+
 Return ONLY valid JSON with this exact structure:
 {
   "overallScore": number,
@@ -276,6 +279,9 @@ exercises the athlete actually performs (from their training log). Your job:
 Do NOT obsess over exact body-fat or weight percentages — the athlete does not care about precise
 percentages and knows they are never exact. Focus on morphology, leverages and exercise adaptation.
 
+IMPORTANT: Write every text value in FRENCH (segments, advice, progression, summary). Keep the
+JSON keys in English exactly as shown below.
+
 Return ONLY valid JSON with this exact structure:
 {
   "segments": [ { "name": string, "assessment": string } ],
@@ -352,6 +358,9 @@ Read the frames as a movement over time (setup -> eccentric -> bottom -> concent
 
 Assess execution quality: joint alignment, range of motion, depth, bar/limb path, tempo, symmetry,
 and common failure modes for this specific exercise. Estimate the number of reps if visible.
+
+IMPORTANT: Write every text value (feedback, issue, correction) in FRENCH. Keep the JSON keys
+in English exactly as shown below.
 
 Return ONLY valid JSON with this exact structure:
 {
@@ -450,6 +459,9 @@ Provide:
 5. 3-5 improvements observed
 6. 3-5 areas for continued improvement
 7. Brief summary of progress
+
+IMPORTANT: Write all text values (improvements, areasForImprovement, summary) in FRENCH. Keep the
+JSON keys in English exactly as shown below.
 
 Return ONLY valid JSON:
 {
