@@ -13,6 +13,11 @@ export interface WeeklyPhotoInput {
   buffer: Buffer
 }
 
+/** Resolve `p`, or `fallback` if it takes longer than `ms`. */
+function withTimeout<T>(p: Promise<T>, ms: number, fallback: T): Promise<T> {
+  return Promise.race([p, new Promise<T>((resolve) => setTimeout(() => resolve(fallback), ms))])
+}
+
 /** Monday 00:00 of the ISO week containing `d`. */
 function startOfIsoWeek(d = new Date()): Date {
   const date = new Date(d)
@@ -83,7 +88,8 @@ async function buildHevyContext(userId: string): Promise<string> {
 async function buildNutritionContext(): Promise<string> {
   if (!process.env.JOURNAL_SANTE_API_URL) return ''
   try {
-    const days = await getJournalSyncService().dailyEnergySummary(30)
+    // Bounded: never let a slow Journal Santé fetch stall the analysis.
+    const days = await withTimeout(getJournalSyncService().dailyEnergySummary(30), 8000, [])
     if (days.length === 0) return ''
     const n = days.length
     const avg = (sel: (d: (typeof days)[number]) => number) =>
@@ -127,9 +133,12 @@ export async function runWeeklyAnalysis(
   const weekOf = startOfIsoWeek()
   const wk = weekKey(weekOf)
 
-  // Auto-sync the last 30 days from Hevy + Journal Santé so the analysis always uses
-  // fresh data — no manual button needed. Best-effort: an outage never fails the run.
-  await Promise.allSettled([
+  // Auto-sync the last 30 days from Hevy + Journal Santé so the analysis uses fresh
+  // data — no manual button needed. TIME-BOXED and non-blocking: if the sync is slow
+  // we proceed with whatever is already in the DB, so the analysis + email always
+  // complete within the serverless time budget. Full sync stays guaranteed by the
+  // home "Synchroniser" buttons and subsequent runs.
+  const sync = Promise.allSettled([
     getHevySyncService()
       .syncWorkouts({ days: 30 })
       .then(() => getHevySyncService().syncBodyMeasurements())
@@ -139,6 +148,10 @@ export async function runWeeklyAnalysis(
           .syncAll()
           .catch((e) => console.error('[morpho] Journal Santé sync failed (non-blocking):', e))
       : Promise.resolve(),
+  ])
+  await Promise.race([
+    sync,
+    new Promise((resolve) => setTimeout(resolve, 12000)), // 12s cap, then proceed
   ])
 
   // 1. Store photos (Blob) + ProgressPhoto rows, and prepare images for Claude.
