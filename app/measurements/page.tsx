@@ -19,9 +19,9 @@ export default function MeasurementsPage() {
 
   const fetchMeasurements = async () => {
     try {
-      const usersRes = await fetch('/api/users')
-      const usersData = await usersRes.json()
-      const userId = usersData[0]?.id
+      const meRes = await fetch('/api/me')
+      const me = await meRes.json()
+      const userId = me?.id
 
       if (!userId) {
         setLoading(false)
@@ -40,12 +40,12 @@ export default function MeasurementsPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    const usersRes = await fetch('/api/users')
-    const usersData = await usersRes.json()
-    const userId = usersData[0]?.id
+    const meRes = await fetch('/api/me')
+    const me = await meRes.json()
+    const userId = me?.id
 
     if (!userId) {
-      alert('Créez d\'abord un utilisateur')
+      alert('Utilisateur système introuvable')
       return
     }
 

@@ -42,12 +42,13 @@ export default function Dashboard() {
 
   const fetchData = async () => {
     try {
-      const usersRes = await fetch('/api/users')
-      const usersData = await usersRes.json()
-      const userId = usersData[0]?.id
+      // Always the single system user (where all syncs/analyses write).
+      const meRes = await fetch('/api/me')
+      const me = await meRes.json()
+      const userId = me?.id
 
       if (!userId) {
-        console.error('No users found')
+        console.error('No system user')
         setLoading(false)
         return
       }
