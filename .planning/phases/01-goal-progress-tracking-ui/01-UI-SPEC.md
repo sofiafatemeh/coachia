@@ -56,7 +56,7 @@ Declared from the sizes/weights already observed in production pages (`text-xs/s
 
 Weight budget: **2 weights for anything new in this phase — 400 (body) and 600 (labels, card/section headings)**. 700 (`font-bold`) is reserved exclusively for the fixed `bg-onyx` page-header `<h1>` — this is a pre-existing, app-wide layout element (identical markup already in `/morpho`, `/dashboard`, `/`), not a new weight introduced by this phase. Do not use `font-bold` anywhere else on `/goals`.
 
-Card titles (`<h3>` in existing cards, e.g. `app/dashboard/page.tsx:112`) use `text-lg` (18px) at `font-semibold` — treat this as an acceptable variant of the Heading role for card-level (not section-level) titles; do not add a 5th distinct size.
+Card titles on `/goals` (every card and section heading, including per-exercise chart cards in GOAL-03) use `text-xl` (20px) `font-semibold` — the same Heading role defined above, with no separate card-level variant. Elsewhere in the app (e.g. `app/dashboard/page.tsx:112`) existing cards use `text-lg` (18px) for card titles — that is a pre-existing convention on already-shipped pages and is NOT carried into this phase's contract. This phase declares exactly 4 distinct sizes (12/14/20/24); do not introduce `text-lg` anywhere on `/goals`.
 
 ---
 
@@ -118,7 +118,7 @@ These are prescriptive requirements specific to GOAL-02/03/04 and directly enfor
 - Scope: top 5-8 exercises by session frequency (D-03), reusing the aggregation logic already in `buildHevyContext()` (`lib/morpho.ts`) — do not build a full exercise picker/dropdown for v1.
 - Layout: one small chart per exercise in a card grid (mirrors the existing `grid grid-cols-1 md:grid-cols-2/3 gap-4/6` pattern already used for photos/segments in `/morpho`), not one giant combined chart.
 - Chart type: line or bar showing best working set weight (or volume) per session over time, `--crimson` as the primary series color, `--gold-soft` gridlines to match the app's border tone.
-- Card header per exercise: `text-lg font-semibold text-ink` (matches existing card-title convention).
+- Card header per exercise: `text-xl font-semibold text-ink` (Heading role — same 20px size used for section headings on this page; do not use `text-lg`).
 
 **Progress-photo timeline (GOAL-04):**
 - Layout: chronological, scrollable list/grid — reuse the existing 3-column photo grid pattern from `/morpho` (`grid grid-cols-1 md:grid-cols-3 gap-4`, `<img className="w-full h-64 object-cover rounded" />`) but repeated per week/entry down the page, most recent first.
