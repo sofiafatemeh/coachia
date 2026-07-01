@@ -73,6 +73,15 @@ export default function Home() {
           </Link>
 
           <Link
+            href="/morpho"
+            className="bg-white p-6 rounded-lg border border-gold-soft hover:border-crimson transition cursor-pointer"
+          >
+            <div className="text-3xl mb-3">🧬</div>
+            <h3 className="text-lg font-semibold text-ink mb-2">Dernière analyse morpho</h3>
+            <p className="text-sm text-ink-soft">Résumé visuel de ta dernière analyse hebdo</p>
+          </Link>
+
+          <Link
             href="/measurements"
             className="bg-white p-6 rounded-lg border border-gold-soft hover:border-crimson transition cursor-pointer"
           >

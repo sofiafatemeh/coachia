@@ -230,3 +230,47 @@ export async function runWeeklyAnalysis(
 
   return { id: record.id, weekOf, analysis, photoUrls, email: { sent: email.sent, reason: email.reason } }
 }
+
+export interface LatestMorphoAnalysis {
+  id: string
+  weekOf: Date
+  createdAt: Date
+  analysis: ClaudeMorphoAnalysis
+  photoUrls: { angle: string; url: string }[]
+  emailedAt: Date | null
+}
+
+/** Most recent persisted morpho analysis for the system user, with its photo URLs resolved. */
+export async function getLatestMorphoAnalysis(): Promise<LatestMorphoAnalysis | null> {
+  const userId = await getOrCreateSystemUserId()
+  const record = await prisma.morphoAnalysis.findFirst({
+    where: { userId },
+    orderBy: { createdAt: 'desc' },
+  })
+  if (!record) return null
+
+  const photos = await prisma.progressPhoto.findMany({ where: { id: { in: record.photoIds } } })
+  const byId = new Map(photos.map((p) => [p.id, p]))
+  const photoUrls = record.photoIds
+    .map((id) => byId.get(id))
+    .filter((p): p is (typeof photos)[number] => Boolean(p))
+    .map((p) => ({ angle: p.angle, url: p.url }))
+
+  // `raw` holds the exact Claude output shape; fall back to the individual
+  // columns for older rows that might predate it.
+  const analysis = (record.raw as unknown as ClaudeMorphoAnalysis) ?? {
+    segments: (record.segments as ClaudeMorphoAnalysis['segments']) ?? [],
+    advice: (record.advice as ClaudeMorphoAnalysis['advice']) ?? [],
+    progression: (record.progression as { text?: string } | null)?.text,
+    summary: record.summary ?? '',
+  }
+
+  return {
+    id: record.id,
+    weekOf: record.weekOf,
+    createdAt: record.createdAt,
+    analysis,
+    photoUrls,
+    emailedAt: record.emailedAt,
+  }
+}

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { runWeeklyAnalysis, type WeeklyPhotoInput } from '@/lib/morpho'
+import { runWeeklyAnalysis, getLatestMorphoAnalysis, type WeeklyPhotoInput } from '@/lib/morpho'
 
 export const runtime = 'nodejs'
 export const maxDuration = 120
@@ -42,6 +42,29 @@ export async function POST(request: Request) {
     console.error('[API] Weekly morpho analysis error:', error)
     return NextResponse.json(
       { error: 'Analyse hebdomadaire échouée', details: error instanceof Error ? error.message : 'Unknown error' },
+      { status: 500 }
+    )
+  }
+}
+
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url)
+  const action = searchParams.get('action')
+
+  if (action !== 'latest') {
+    return NextResponse.json({ error: "action non supportée (utiliser ?action=latest)" }, { status: 400 })
+  }
+
+  try {
+    const result = await getLatestMorphoAnalysis()
+    if (!result) {
+      return NextResponse.json({ error: 'Aucune analyse morpho trouvée' }, { status: 404 })
+    }
+    return NextResponse.json(result)
+  } catch (error) {
+    console.error('[API] Latest morpho analysis error:', error)
+    return NextResponse.json(
+      { error: 'Impossible de récupérer la dernière analyse', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     )
   }
