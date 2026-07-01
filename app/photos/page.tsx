@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { DEFAULT_HEIGHT_CM, currentAge } from '@/lib/profile'
 
 interface AnalysisResult {
   score: number
@@ -16,9 +17,9 @@ export default function PhotosPage() {
   const [imageUrl, setImageUrl] = useState('')
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
-  const [height, setHeight] = useState('')
+  const [height, setHeight] = useState(String(DEFAULT_HEIGHT_CM))
   const [gender, setGender] = useState('male')
-  const [age, setAge] = useState('')
+  const [age, setAge] = useState(String(currentAge()))
   const [analyzing, setAnalyzing] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
   const [result, setResult] = useState<AnalysisResult | null>(null)
