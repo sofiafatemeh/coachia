@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { DEFAULT_HEIGHT_CM, currentAge } from '@/lib/profile'
 
 interface MorphoResult {
   analysis: {
@@ -22,9 +23,9 @@ const ANGLES = [
 export default function WeeklyPage() {
   const [files, setFiles] = useState<Record<string, File | null>>({ front: null, side: null, back: null })
   const [previews, setPreviews] = useState<Record<string, string | null>>({ front: null, side: null, back: null })
-  const [height, setHeight] = useState('')
+  const [height, setHeight] = useState(String(DEFAULT_HEIGHT_CM))
   const [gender, setGender] = useState('male')
-  const [age, setAge] = useState('')
+  const [age, setAge] = useState(String(currentAge()))
   const [email, setEmail] = useState('')
   const [analyzing, setAnalyzing] = useState(false)
   const [result, setResult] = useState<MorphoResult | null>(null)
