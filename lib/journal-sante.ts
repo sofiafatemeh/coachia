@@ -34,25 +34,36 @@ export class JournalSanteClient {
   private baseUrl: string
 
   constructor(baseUrl: string = 'http://localhost:3000/api') {
-    this.baseUrl = baseUrl
+    let u = (baseUrl || '').trim()
+    if (u && !/^https?:\/\//i.test(u)) u = `https://${u}` // tolerate a missing scheme
+    this.baseUrl = u.replace(/\/$/, '') // strip trailing slash
   }
 
   private async request<T>(endpoint: string, options?: RequestInit): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`
 
     const secret = process.env.JOURNAL_SANTE_SECRET
-    const response = await fetch(url, {
-      ...options,
-      cache: 'no-store',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(secret ? { Authorization: `Bearer ${secret}` } : {}),
-        ...options?.headers,
-      },
-    })
+    let response: Response
+    try {
+      response = await fetch(url, {
+        ...options,
+        cache: 'no-store',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(secret ? { Authorization: `Bearer ${secret}` } : {}),
+          ...options?.headers,
+        },
+      })
+    } catch (err) {
+      // Surface the URL we tried so config mistakes (localhost default, missing
+      // scheme, wrong domain) are obvious instead of a bare "fetch failed".
+      throw new Error(
+        `Impossible de joindre Journal Santé à ${url} — vérifie JOURNAL_SANTE_API_URL (doit finir par /api) et le redéploiement. Détail: ${err instanceof Error ? err.message : 'fetch failed'}`
+      )
+    }
 
     if (!response.ok) {
-      throw new Error(`Journal Santé API error: ${response.status} ${response.statusText}`)
+      throw new Error(`Journal Santé API error: ${response.status} ${response.statusText} (${url})`)
     }
 
     return response.json()
