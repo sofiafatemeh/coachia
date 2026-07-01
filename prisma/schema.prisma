@@ -24,6 +24,7 @@ model User {
   meals         Meal[]
   videos        Video[]
   progressPhotos ProgressPhoto[]
+  morphoAnalyses MorphoAnalysis[]
 }
 
 // ===== MEASUREMENTS (Body Composition) =====
@@ -196,4 +197,29 @@ model ProgressPhoto {
 
   @@index([userId])
   @@index([createdAt])
+}
+
+// Weekly morpho-anatomical analysis: combines the 3 weekly photos with the
+// user's Hevy exercises to produce segment estimates and exercise-adaptation advice.
+model MorphoAnalysis {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+
+  weekOf      DateTime            // Monday of the ISO week this analysis covers
+  photoIds    String[] @default([])  // ProgressPhoto ids (front/side/back)
+
+  segments    Json?               // estimated segment lengths / proportions
+  advice      Json?               // structured advice to adapt the exercises
+  progression Json?               // qualitative progression vs. previous week
+  summary     String?             // short human-readable summary
+
+  claudeModel String?
+  raw         Json?               // raw model output (audit)
+  emailedAt   DateTime?           // when the advice email was sent
+
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+  @@index([weekOf])
 }

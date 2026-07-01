@@ -42,6 +42,20 @@ export interface ClaudeVisionAnalysis {
   recommendations?: string[]
 }
 
+export interface ClaudeMorphoImage {
+  angle: string // front | side | back
+  base64: string
+  mediaType: string
+}
+
+export interface ClaudeMorphoAnalysis {
+  segments: { name: string; assessment: string }[]
+  advice: { exercise?: string; recommendation: string; reason?: string }[]
+  progression?: string
+  summary: string
+  overallScore?: number
+}
+
 export interface ClaudeProgressAnalysis {
   scoreDiff: number
   weightDiff?: number
@@ -227,6 +241,92 @@ Return ONLY valid JSON with this exact structure:
         console.error('[Claude] Error stack:', error.stack)
       }
       throw error
+    }
+  }
+
+  /**
+   * Morpho-anatomical analysis of the weekly photo set (front/side/back) combined
+   * with the athlete's actual Hevy exercises. Produces segment-proportion estimates
+   * and concrete advice to adapt those exercises to the morphology.
+   */
+  async analyzeMorphology(
+    images: ClaudeMorphoImage[],
+    context: string,
+    options?: { model?: ClaudeModel; height?: number; gender?: 'male' | 'female'; age?: number }
+  ): Promise<ClaudeMorphoAnalysis> {
+    let systemPrompt = `You are an expert in anthropometry and strength & conditioning coaching.
+You are given physique photos from up to three angles (front, side, back) and the list of
+exercises the athlete actually performs (from their training log). Your job:
+
+1. Estimate the athlete's SEGMENT PROPORTIONS qualitatively from the photos (relative, not
+   absolute cm): torso vs leg length, arm and forearm length, femur vs tibia, clavicle/shoulder
+   width, hip width. Note the leverages that matter for training.
+2. Give CONCRETE, actionable advice to ADAPT THE ATHLETE'S ACTUAL EXERCISES to this morphology
+   (stance/grip width, range of motion, foot placement, exercise substitutions, which muscle
+   groups to prioritise given the leverages). Reference the exercises from the log by name.
+3. Give a brief qualitative PROGRESSION note when previous context is provided.
+
+Do NOT obsess over exact body-fat or weight percentages — the athlete does not care about precise
+percentages and knows they are never exact. Focus on morphology, leverages and exercise adaptation.
+
+Return ONLY valid JSON with this exact structure:
+{
+  "segments": [ { "name": string, "assessment": string } ],
+  "advice": [ { "exercise": string, "recommendation": string, "reason": string } ],
+  "progression": string,
+  "summary": string,
+  "overallScore": number
+}`
+
+    if (options?.height) systemPrompt += `\n\nThe athlete is ${options.height}cm tall.`
+    if (options?.gender) systemPrompt += `\n\nThe athlete is ${options.gender}.`
+    if (options?.age) systemPrompt += `\n\nThe athlete is approximately ${options.age} years old.`
+
+    const content: ClaudeContent[] = images.map((img) => ({
+      type: 'image',
+      source: { type: 'base64', media_type: img.mediaType, data: img.base64 },
+    }))
+    content.push({
+      type: 'text',
+      text: `Photo angles provided (in order): ${images.map((i) => i.angle).join(', ')}.\n\n${context}`,
+    })
+
+    const model = options?.model || DEFAULT_MODEL
+
+    const response = await fetch(this.baseUrl, {
+      method: 'POST',
+      headers: {
+        'x-api-key': this.apiKey,
+        'anthropic-version': '2023-06-01',
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        model,
+        max_tokens: 4096,
+        system: systemPrompt,
+        messages: [{ role: 'user', content }],
+      }),
+    })
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}))
+      throw new Error(`Claude API error: ${response.status} - ${error.error?.message || response.statusText}`)
+    }
+
+    const data = await response.json()
+    const text = data.content?.[0]?.text || ''
+    const jsonMatch = text.match(/\{[\s\S]*\}/)
+    if (!jsonMatch) {
+      throw new Error('No JSON found in Claude morpho response')
+    }
+
+    const result = JSON.parse(jsonMatch[0])
+    return {
+      segments: Array.isArray(result.segments) ? result.segments : [],
+      advice: Array.isArray(result.advice) ? result.advice : [],
+      progression: result.progression ?? undefined,
+      summary: result.summary ?? '',
+      overallScore: typeof result.overallScore === 'number' ? result.overallScore : undefined,
     }
   }
 
