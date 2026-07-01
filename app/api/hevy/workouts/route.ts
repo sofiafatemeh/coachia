@@ -15,8 +15,9 @@ export async function POST(request: Request) {
         result = await syncService.syncWorkouts({ days })
         break
 
-      case 'syncBodyweight':
-        result = await syncService.syncBodyweight()
+      case 'syncBodyMeasurements':
+      case 'syncBodyweight': // legacy alias
+        result = await syncService.syncBodyMeasurements()
         break
 
       default:
