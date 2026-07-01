@@ -1,10 +1,11 @@
 ---
 phase: 1
 slug: goal-progress-tracking-ui
-status: draft
+status: approved
 shadcn_initialized: false
 preset: none
 created: 2026-07-01
+reviewed_at: 2026-07-01
 ---
 
 # Phase 1 — UI Design Contract
