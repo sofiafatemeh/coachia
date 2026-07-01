@@ -25,7 +25,12 @@ This milestone adds two independent capabilities on top of the already-shipped C
   2. Dashboard shows a smoothed weight/body-fat trend line against the goal, not raw day-to-day noise
   3. User can view volume/strength progression per exercise, computed from existing Hevy-synced workout data
   4. User can view a chronological timeline of their progress photos
-**Plans**: TBD
+**Plans**: 4 plans
+Plans:
+- [ ] 01-01-PLAN.md — Goal Prisma model + migration + lib/goals.ts (CRUD + trend/exercise/photo aggregation)
+- [ ] 01-02-PLAN.md — app/api/goals/route.ts (GET combined payload, POST create-or-replace)
+- [ ] 01-03-PLAN.md — /goals page shell: states, goal form, weight/body-fat trend charts
+- [ ] 01-04-PLAN.md — /goals strength/volume charts + photo timeline + home page card
 **UI hint**: yes
 
 ### Phase 2: Book RAG - Ingestion Foundation
@@ -57,7 +62,7 @@ Phases execute in numeric order: 1 → 2 → 3
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Goal & Progress Tracking UI | 0/TBD | Not started | - |
+| 1. Goal & Progress Tracking UI | 0/4 | Not started | - |
 | 2. Book RAG - Ingestion Foundation | 0/TBD | Not started | - |
 | 3. Book RAG - Retrieval & Prompt Integration | 0/TBD | Not started | - |
 </content>
