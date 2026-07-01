@@ -13,14 +13,16 @@ function toAnalysisResult(measurement: {
   createdAt: Date
 }) {
   const data = (measurement.claudeData ?? {}) as any
+  // AI estimates live inside claudeData (photo analysis is a visual guess, not a
+  // real weigh-in). Fall back to the columns for legacy rows created before that split.
   return {
     id: measurement.id,
     score: data.overallScore ?? null,
     confidence: data.confidence ?? null,
-    weight: measurement.weight,
-    bodyFat: measurement.bodyFat,
-    muscleMass: measurement.muscleMass,
-    bmi: measurement.bmi,
+    weight: data.weight ?? measurement.weight,
+    bodyFat: data.bodyFat ?? measurement.bodyFat,
+    muscleMass: data.muscleMass ?? measurement.muscleMass,
+    bmi: data.bmi ?? measurement.bmi,
     strengths: data.strengths ?? [],
     weaknesses: data.weaknesses ?? [],
     recommendations: data.recommendations ?? [],
@@ -42,15 +44,21 @@ export class ClaudeSyncService {
     // Get system user ID
     const userId = await getOrCreateSystemUserId()
 
-    // Create measurement in database
+    // Store the AI analysis. The estimated body metrics are AI *guesses* from a
+    // photo, not real weigh-ins, so they go into claudeData only — the measurement
+    // columns stay null so this row never appears as a pesée in the Dashboard/Mesures.
     const measurement = await prisma.measurement.create({
       data: {
         userId,
-        weight: analysis.weight ?? null,
-        bodyFat: analysis.bodyFat ?? null,
-        muscleMass: analysis.muscleMass ?? null,
-        bmi: analysis.bmi ?? null,
+        weight: null,
+        bodyFat: null,
+        muscleMass: null,
+        bmi: null,
         claudeData: {
+          weight: analysis.weight ?? null,
+          bodyFat: analysis.bodyFat ?? null,
+          muscleMass: analysis.muscleMass ?? null,
+          bmi: analysis.bmi ?? null,
           muscleScores: {
             chest: analysis.chestScore,
             back: analysis.backScore,
@@ -143,10 +151,14 @@ export class ClaudeSyncService {
     const latestData = latest.claudeData as any
     const oldestData = oldest.claudeData as any
 
+    // Metrics live in claudeData now (column fallback for legacy rows).
+    const metric = (row: typeof latest, data: any, key: 'weight' | 'bodyFat' | 'muscleMass') =>
+      (data?.[key] ?? (row as any)[key] ?? 0)
+
     const progress = {
-      weightChange: (latest.weight || 0) - (oldest.weight || 0),
-      bodyFatChange: (latest.bodyFat || 0) - (oldest.bodyFat || 0),
-      muscleMassChange: (latest.muscleMass || 0) - (oldest.muscleMass || 0),
+      weightChange: metric(latest, latestData, 'weight') - metric(oldest, oldestData, 'weight'),
+      bodyFatChange: metric(latest, latestData, 'bodyFat') - metric(oldest, oldestData, 'bodyFat'),
+      muscleMassChange: metric(latest, latestData, 'muscleMass') - metric(oldest, oldestData, 'muscleMass'),
       overallScoreChange: (latestData?.overallScore || 0) - (oldestData?.overallScore || 0),
       daysElapsed: Math.floor(
         (new Date(latest.createdAt).getTime() - new Date(oldest.createdAt).getTime()) / (1000 * 60 * 60 * 24)
