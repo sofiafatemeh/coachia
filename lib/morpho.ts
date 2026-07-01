@@ -114,7 +114,15 @@ export async function runWeeklyAnalysis(
     const base64 = await compressToBase64(p.buffer)
     images.push({ angle: p.angle, base64, mediaType: 'image/jpeg' })
 
-    const url = await uploadProgressPhoto(Buffer.from(base64, 'base64'), { angle: p.angle, weekKey: wk })
+    // Store in Blob, but don't let a storage misconfig break the analysis:
+    // fall back to an inline data URL so the pipeline still completes.
+    let url: string
+    try {
+      url = await uploadProgressPhoto(Buffer.from(base64, 'base64'), { angle: p.angle, weekKey: wk })
+    } catch (err) {
+      console.error('[morpho] Blob upload failed, storing inline fallback:', err)
+      url = `data:image/jpeg;base64,${base64}`
+    }
     photoUrls.push({ angle: p.angle, url })
 
     const row = await prisma.progressPhoto.create({
