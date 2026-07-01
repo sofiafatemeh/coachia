@@ -114,27 +114,27 @@ export default function VideoPage() {
   const score = result?.analysis.formScore ?? 0
 
   return (
-    <div className="min-h-screen bg-zinc-50 font-sans">
-      <header className="bg-white border-b border-zinc-200">
+    <div className="min-h-screen font-sans">
+      <header className="bg-onyx border-b-2 border-gold">
         <div className="max-w-4xl mx-auto px-4 py-4 flex justify-between items-center">
-          <h1 className="text-2xl font-bold text-zinc-900">Analyse vidéo</h1>
-          <Link href="/" className="text-zinc-600 hover:text-zinc-900 underline">Accueil</Link>
+          <h1 className="text-2xl font-bold text-white">Analyse vidéo</h1>
+          <Link href="/" className="text-white/70 hover:text-gold underline">Accueil</Link>
         </div>
       </header>
 
       <main className="max-w-4xl mx-auto px-4 py-8">
-        <p className="text-zinc-600 mb-6">
+        <p className="text-ink-soft mb-6">
           Filme une série (~30 s) d&apos;un exercice. L&apos;analyse examine ton exécution image par image
           et te donne un score de forme + des corrections concrètes.
         </p>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-          <label className="bg-white border border-zinc-200 rounded-lg p-4 cursor-pointer hover:border-zinc-400 transition block">
-            <div className="font-semibold text-zinc-900 mb-2">Vidéo</div>
+          <label className="bg-white border border-gold-soft rounded-lg p-4 cursor-pointer hover:border-crimson transition block">
+            <div className="font-semibold text-ink mb-2">Vidéo</div>
             {previewUrl ? (
               <video src={previewUrl} controls className="w-full h-56 object-contain rounded bg-black" />
             ) : (
-              <div className="w-full h-56 rounded bg-zinc-100 flex items-center justify-center text-zinc-400 text-sm">
+              <div className="w-full h-56 rounded bg-gold-soft/30 flex items-center justify-center text-ink-soft text-sm">
                 Choisir une vidéo
               </div>
             )}
@@ -146,12 +146,12 @@ export default function VideoPage() {
               value={exercise}
               onChange={(e) => setExercise(e.target.value)}
               placeholder="Exercice (ex: Squat, Développé couché…)"
-              className="px-3 py-2 border border-zinc-300 rounded-lg text-sm"
+              className="px-3 py-2 border border-gold-soft rounded-lg text-sm"
             />
             <button
               onClick={submit}
               disabled={analyzing}
-              className="px-6 py-3 bg-zinc-900 text-white rounded-lg hover:bg-zinc-800 transition disabled:opacity-50"
+              className="px-6 py-3 bg-crimson text-white rounded-lg hover:bg-crimson-dark transition disabled:opacity-50"
             >
               {analyzing ? (status || 'Analyse…') : 'Analyser l’exécution'}
             </button>
@@ -159,22 +159,22 @@ export default function VideoPage() {
         </div>
 
         {result && (
-          <div className="bg-white border border-zinc-200 rounded-lg p-6 space-y-5">
+          <div className="bg-white border border-gold-soft rounded-lg p-6 space-y-5">
             <div className="flex items-baseline gap-3">
-              <span className="text-4xl font-bold text-zinc-900">{score}/100</span>
-              <span className="text-zinc-600">score d&apos;exécution</span>
+              <span className="text-4xl font-bold text-ink">{score}/100</span>
+              <span className="text-ink-soft">score d&apos;exécution</span>
               {typeof result.analysis.reps === 'number' && result.analysis.reps > 0 && (
-                <span className="text-sm text-zinc-500 ml-auto">{result.analysis.reps} reps détectées</span>
+                <span className="text-sm text-ink-soft ml-auto">{result.analysis.reps} reps détectées</span>
               )}
             </div>
-            <p className="text-zinc-700">{result.analysis.feedback}</p>
+            <p className="text-ink">{result.analysis.feedback}</p>
             <div>
-              <h3 className="font-semibold text-zinc-900 mb-2">Corrections</h3>
-              <ul className="space-y-2 text-sm text-zinc-700">
+              <h3 className="font-semibold text-ink mb-2">Corrections</h3>
+              <ul className="space-y-2 text-sm text-ink">
                 {result.analysis.cues.map((c, i) => (
                   <li key={i}>
                     <span className="font-medium">{c.issue}</span>
-                    <div className="text-zinc-500">→ {c.correction}</div>
+                    <div className="text-ink-soft">→ {c.correction}</div>
                   </li>
                 ))}
               </ul>

@@ -38,14 +38,14 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-zinc-50 font-sans px-4">
-      <div className="w-full max-w-sm bg-white rounded-lg border border-zinc-200 p-8">
-        <h1 className="text-2xl font-bold text-zinc-900 mb-1">🏋️ Coach IA</h1>
-        <p className="text-sm text-zinc-500 mb-6">Accès protégé</p>
+    <div className="min-h-screen flex items-center justify-center bg-onyx font-sans px-4">
+      <div className="w-full max-w-sm bg-white rounded-lg border-2 border-gold p-8 shadow-xl">
+        <h1 className="text-2xl font-bold text-ink mb-1">🏋️ Coach <span className="text-crimson">IA</span></h1>
+        <p className="text-sm text-ink-soft mb-6">Accès protégé</p>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label htmlFor="password" className="block text-sm font-medium text-zinc-700 mb-1">
+            <label htmlFor="password" className="block text-sm font-medium text-ink mb-1">
               Mot de passe
             </label>
             <input
@@ -55,16 +55,16 @@ export default function LoginPage() {
               onChange={(e) => setPassword(e.target.value)}
               autoFocus
               autoComplete="current-password"
-              className="w-full px-4 py-2 border border-zinc-300 rounded-lg focus:ring-2 focus:ring-zinc-500 focus:border-transparent"
+              className="w-full px-4 py-2 border border-gold-soft rounded-lg focus:ring-2 focus:ring-crimson focus:border-transparent text-ink"
             />
           </div>
 
-          {error && <div className="text-sm text-red-600">{error}</div>}
+          {error && <div className="text-sm text-crimson font-medium">{error}</div>}
 
           <button
             type="submit"
             disabled={loading || !password}
-            className="w-full px-6 py-3 bg-zinc-900 text-white rounded-lg hover:bg-zinc-800 transition font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full px-6 py-3 bg-crimson text-white rounded-lg hover:bg-crimson-dark transition font-medium disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? 'Connexion...' : 'Se connecter'}
           </button>

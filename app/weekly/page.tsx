@@ -75,29 +75,29 @@ export default function WeeklyPage() {
   }
 
   return (
-    <div className="min-h-screen bg-zinc-50 font-sans">
-      <header className="bg-white border-b border-zinc-200">
+    <div className="min-h-screen font-sans">
+      <header className="bg-onyx border-b-2 border-gold">
         <div className="max-w-5xl mx-auto px-4 py-4 flex justify-between items-center">
-          <h1 className="text-2xl font-bold text-zinc-900">Analyse hebdo</h1>
-          <Link href="/" className="text-zinc-600 hover:text-zinc-900 underline">Accueil</Link>
+          <h1 className="text-2xl font-bold text-white">Analyse hebdo</h1>
+          <Link href="/" className="text-white/70 hover:text-gold underline">Accueil</Link>
         </div>
       </header>
 
       <main className="max-w-5xl mx-auto px-4 py-8">
-        <p className="text-zinc-600 mb-6">
+        <p className="text-ink-soft mb-6">
           Ajoute tes 3 photos de la semaine. L&apos;analyse combine tes proportions et tes exercices Hevy
           pour te conseiller comment adapter ton entraînement — et t&apos;envoie le tout par email.
         </p>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
           {ANGLES.map((a) => (
-            <label key={a.key} className="bg-white border border-zinc-200 rounded-lg p-4 cursor-pointer hover:border-zinc-400 transition block">
-              <div className="font-semibold text-zinc-900 mb-2">{a.label}</div>
+            <label key={a.key} className="bg-white border border-gold-soft rounded-lg p-4 cursor-pointer hover:border-crimson transition block">
+              <div className="font-semibold text-ink mb-2">{a.label}</div>
               {previews[a.key] ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={previews[a.key] as string} alt={a.label} className="w-full h-48 object-cover rounded" />
               ) : (
-                <div className="w-full h-48 rounded bg-zinc-100 flex items-center justify-center text-zinc-400 text-sm">
+                <div className="w-full h-48 rounded bg-gold-soft/30 flex items-center justify-center text-ink-soft text-sm">
                   Choisir une photo
                 </div>
               )}
@@ -107,36 +107,36 @@ export default function WeeklyPage() {
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-          <input value={height} onChange={(e) => setHeight(e.target.value)} placeholder="Taille (cm)" inputMode="numeric" className="px-3 py-2 border border-zinc-300 rounded-lg text-sm" />
-          <select value={gender} onChange={(e) => setGender(e.target.value)} className="px-3 py-2 border border-zinc-300 rounded-lg text-sm">
+          <input value={height} onChange={(e) => setHeight(e.target.value)} placeholder="Taille (cm)" inputMode="numeric" className="px-3 py-2 border border-gold-soft rounded-lg text-sm" />
+          <select value={gender} onChange={(e) => setGender(e.target.value)} className="px-3 py-2 border border-gold-soft rounded-lg text-sm">
             <option value="male">Homme</option>
             <option value="female">Femme</option>
           </select>
-          <input value={age} onChange={(e) => setAge(e.target.value)} placeholder="Âge" inputMode="numeric" className="px-3 py-2 border border-zinc-300 rounded-lg text-sm" />
-          <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email (optionnel)" type="email" className="px-3 py-2 border border-zinc-300 rounded-lg text-sm" />
+          <input value={age} onChange={(e) => setAge(e.target.value)} placeholder="Âge" inputMode="numeric" className="px-3 py-2 border border-gold-soft rounded-lg text-sm" />
+          <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email (optionnel)" type="email" className="px-3 py-2 border border-gold-soft rounded-lg text-sm" />
         </div>
 
         <button
           onClick={submit}
           disabled={analyzing}
-          className="px-6 py-3 bg-zinc-900 text-white rounded-lg hover:bg-zinc-800 transition disabled:opacity-50"
+          className="px-6 py-3 bg-crimson text-white rounded-lg hover:bg-crimson-dark transition disabled:opacity-50"
         >
           {analyzing ? 'Analyse en cours… (jusqu’à 1 min)' : 'Lancer l’analyse hebdo'}
         </button>
 
         {result && (
-          <div className="mt-8 bg-white border border-zinc-200 rounded-lg p-6 space-y-6">
+          <div className="mt-8 bg-white border border-gold-soft rounded-lg p-6 space-y-6">
             <div>
-              <h2 className="text-xl font-semibold text-zinc-900 mb-1">Résumé</h2>
-              <p className="text-zinc-700">{result.analysis.summary}</p>
-              <p className="text-xs text-zinc-500 mt-2">
+              <h2 className="text-xl font-semibold text-ink mb-1">Résumé</h2>
+              <p className="text-ink">{result.analysis.summary}</p>
+              <p className="text-xs text-ink-soft mt-2">
                 {result.email.sent ? '📧 Conseils envoyés par email.' : `📧 Email non envoyé (${result.email.reason ?? 'non configuré'}).`}
               </p>
             </div>
 
             <div>
-              <h3 className="font-semibold text-zinc-900 mb-2">Proportions / segments</h3>
-              <ul className="space-y-1 text-sm text-zinc-700">
+              <h3 className="font-semibold text-ink mb-2">Proportions / segments</h3>
+              <ul className="space-y-1 text-sm text-ink">
                 {result.analysis.segments.map((s, i) => (
                   <li key={i}><span className="font-medium">{s.name} :</span> {s.assessment}</li>
                 ))}
@@ -144,13 +144,13 @@ export default function WeeklyPage() {
             </div>
 
             <div>
-              <h3 className="font-semibold text-zinc-900 mb-2">Conseils pour adapter tes exercices</h3>
-              <ul className="space-y-2 text-sm text-zinc-700">
+              <h3 className="font-semibold text-ink mb-2">Conseils pour adapter tes exercices</h3>
+              <ul className="space-y-2 text-sm text-ink">
                 {result.analysis.advice.map((a, i) => (
                   <li key={i}>
                     {a.exercise && <span className="font-medium">{a.exercise} — </span>}
                     {a.recommendation}
-                    {a.reason && <div className="text-zinc-500 italic">{a.reason}</div>}
+                    {a.reason && <div className="text-ink-soft italic">{a.reason}</div>}
                   </li>
                 ))}
               </ul>
@@ -158,8 +158,8 @@ export default function WeeklyPage() {
 
             {result.analysis.progression && (
               <div>
-                <h3 className="font-semibold text-zinc-900 mb-2">Progression</h3>
-                <p className="text-sm text-zinc-700">{result.analysis.progression}</p>
+                <h3 className="font-semibold text-ink mb-2">Progression</h3>
+                <p className="text-sm text-ink">{result.analysis.progression}</p>
               </div>
             )}
           </div>
